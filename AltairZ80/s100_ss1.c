@@ -287,7 +287,6 @@ extern int32 sio0d(const int32 port, const int32 io, const int32 data);
 extern int32 sio0s(const int32 port, const int32 io, const int32 data);
 
 static struct tm currentTime;
-static int32 toBCD(const int32 x);
 
 static uint8 SS1_Read(const uint32 Addr)
 {
@@ -352,44 +351,44 @@ static uint8 SS1_Read(const uint32 Addr)
 
             switch(ss1_rtc[0].digit_sel) {
             case 0:
-                cData = toBCD(currentTime.tm_sec) & 0xF;
+                cData = (currentTime.tm_sec % 10);
                 break;
             case 1:
-                cData = (toBCD(currentTime.tm_sec) >> 4) & 0xF;
+                cData = (currentTime.tm_sec / 10);
                 break;
             case 2:
-                cData = toBCD(currentTime.tm_min) & 0xF;
+                cData = (currentTime.tm_min % 10);
                 break;
             case 3:
-                cData = (toBCD(currentTime.tm_min) >> 4) & 0xF;
+                cData = currentTime.tm_min / 10;
                 break;
             case 4:
-                cData = toBCD(currentTime.tm_hour) & 0xF;
+                cData = currentTime.tm_hour % 10;
                 break;
             case 5:
-                cData = (toBCD(currentTime.tm_hour) >> 4) & 0x3;
+                cData = currentTime.tm_hour / 10;
                 cData |= 0x08;  /* Set to 24-hour format */
                 break;
             case 6:
-                cData = toBCD(currentTime.tm_wday) & 0xF;
+                cData = currentTime.tm_wday;
                 break;
             case 7:
-                cData = toBCD(currentTime.tm_mday) & 0xF;
+                cData = currentTime.tm_mday % 10;
                 break;
             case 8:
-                cData = (toBCD(currentTime.tm_mday) >> 4) & 0xF;
+                cData = currentTime.tm_mday / 10;
                 break;
             case 9:
-                cData = toBCD(currentTime.tm_mon+1) & 0xF;
+                cData = (currentTime.tm_mon+1) % 10;
                 break;
             case 10:
-                cData = (toBCD(currentTime.tm_mon+1) >> 4) & 0xF;
+                cData = (currentTime.tm_mon+1) / 10;
                 break;
             case 11:
-                cData = toBCD(currentTime.tm_year-22) & 0xF;
+                cData = currentTime.tm_year % 10;
                 break;
             case 12:
-                cData = (toBCD(currentTime.tm_year-22) >> 4) & 0xF;
+                cData = (currentTime.tm_year % 100) / 10;
                 break;
             default:
                 cData = 0;
@@ -660,9 +659,5 @@ static t_stat ss1_svc (UNIT *uptr)
     sim_activate(&ss1_unit[3], 1000000);  // requeue, because more interrupts are pending.
 
     return SCPE_OK;
-}
-
-static int32 toBCD(const int32 x) {
-    return (x / 10) * 16 + (x % 10);
 }
 
