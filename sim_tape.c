@@ -3830,7 +3830,7 @@ t_awslnt awsrec_typ = AWS_REC;
 char name[256];
 t_stat stat = SCPE_OPENERR;
 uint8 *buf = NULL;
-t_stat aws_stat;
+t_stat aws_stat = MTSE_UNATT;
 int32 saved_switches = sim_switches;
 
 srand (0);                      /* All devices use the same random sequence for file data */
@@ -3889,11 +3889,14 @@ fAWS3 = fopen (name, "wb");
 if (fAWS3  == NULL)
     goto Done_Files;
 sprintf (name, "aws %s.aws.tape", filename);
-(void)remove (name);
 sim_switches = SWMASK ('F') | (sim_switches & SWMASK ('D')) | SWMASK ('N');
 if (sim_switches & SWMASK ('D'))
     uptr->dctrl = MTSE_DBG_STR | MTSE_DBG_DAT;
 aws_stat = sim_tape_attach_ex (uptr, name, (saved_switches & SWMASK ('D')) ? MTSE_DBG_STR | MTSE_DBG_DAT: 0, 0);
+if (aws_stat != MTSE_OK) {
+    stat = aws_stat;
+    goto Done_Files;
+    }
 sim_switches = saved_switches;
 stat = SCPE_OK;
 for (i=0; i<files; i++) {
@@ -4025,7 +4028,8 @@ if (fTAR)
 if (fTAR2)
     fclose (fTAR2);
 free (buf);
-sim_tape_detach (uptr);
+if (aws_stat == MTSE_OK)
+    sim_tape_detach (uptr);
 if (stat == SCPE_OK) {
     char name1[CBUFSIZE], name2[CBUFSIZE];
 
@@ -4095,6 +4099,8 @@ sprintf (name, "%s.2.tar", filename);
 (void)remove (name);
 sprintf (name, "%s.3.tar", filename);
 (void)remove (name);
+sprintf (name, "%s.aws.tape", filename);
+(void)remove (name);
 return SCPE_OK;
 }
 
@@ -4137,7 +4143,11 @@ t_stat sim_tape_test (DEVICE *dptr)
 int32 saved_switches = sim_switches;
 SIM_TEST_INIT;
 
-sim_printf ("\nTesting %s device sim_tape APIs\n", sim_uname(dptr->units));
+if (dptr->units->flags & UNIT_ATT)
+    return sim_messagef (SCPE_ALATT, "The %s device must be detached to run the sim_tape library API tests.\n",
+                                     sim_uname(dptr->units));
+
+sim_printf ("\nTesting %s device sim_tape library APIs\n", sim_uname(dptr->units));
 
 SIM_TEST(sim_tape_test_density_string ());
 
