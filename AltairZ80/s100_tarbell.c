@@ -371,8 +371,6 @@ static t_stat tarbell_reset(DEVICE *dptr)
 {
     uint8 i;
     TARBELL_INFO *pInfo = (TARBELL_INFO *)dptr->ctxt;
-    DEVICE *sio_dptr;
-    UNIT *sio_uptr;
 
     if (dptr->flags & DEV_DIS) { /* Disconnect I/O Ports */
         sim_map_resource(pInfo->pnp.mem_base, pInfo->pnp.mem_size, RESOURCE_TYPE_MEMORY, &tarbellprom, "tarbellprom", TRUE);
@@ -773,13 +771,11 @@ static uint8 TARBELL_Read(uint32 Addr)
 {
     uint8 cData;
     uint8 driveNum;
-    uint8 dd;
     FD17XX_REG *pFD17XX;
     UNIT *uptr;
 
     cData = 0;
     driveNum = tarbell_info->currentDrive;
-//    dd = tarbell_info->doubleDensity[driveNum];
     uptr = tarbell_info->uptr[driveNum];
     pFD17XX = &tarbell_info->FD17XX;
 
@@ -868,7 +864,7 @@ static uint8 TARBELL_Read(uint32 Addr)
             break;
     }
 
-//    DBG_PRINT(("TARBELL: READ COMPLETE currentDrive=%d doubleDensity=%d sector=%03d track=%02d data=%02x\n", tarbell_info->currentDrive, tarbell_info->doubleDensity[tarbell_info->currentDrive], pFD17XX->track, pFD17XX->sector, pFD17XX->data));
+    DBG_PRINT(("TARBELL: READ COMPLETE currentDrive=%d doubleDensity=%d sector=%03d track=%02d data=%02x\n", tarbell_info->currentDrive, tarbell_info->doubleDensity[tarbell_info->currentDrive], pFD17XX->track, pFD17XX->sector, pFD17XX->data));
 
     return (cData);
 }
@@ -877,9 +873,7 @@ static uint8 TARBELL_Write(uint32 Addr, int32 Data)
 {
     uint8 cData;
     uint8 driveNum;
-    uint8 dd;
     int32 rtn;
-    int32 secOffset;
     UNIT *uptr;
     FD17XX_REG *pFD17XX;
 
@@ -887,7 +881,6 @@ static uint8 TARBELL_Write(uint32 Addr, int32 Data)
 
     cData = 0;
     driveNum = tarbell_info->currentDrive;
-//    dd = tarbell_info->doubleDensity[driveNum];
     uptr = tarbell_info->uptr[driveNum];
     pFD17XX = &tarbell_info->FD17XX;
 
@@ -977,7 +970,7 @@ static uint8 TARBELL_Write(uint32 Addr, int32 Data)
                 TARBELL_HeadLoad(uptr, pFD17XX, TRUE);
             }
 
-//            DBG_PRINT(("TARBELL: WRITE DATA REG %02X\n", Data));
+            DBG_PRINT(("TARBELL: WRITE DATA REG %02X\n", Data));
             break;
 
         case TARBELL_REG_TRACK:
@@ -1027,7 +1020,7 @@ static uint8 TARBELL_Write(uint32 Addr, int32 Data)
             break;
     }
 
-//    DBG_PRINT(("TARBELL: WRITE COMPLETE currentDrive=%d doubleDensity=%d sector=%03d track=%02d data=%02x\n", tarbell_info->currentDrive, tarbell_info->doubleDensity[tarbell_info->currentDrive], pFD17XX->track, pFD17XX->sector, pFD17XX->data));
+    DBG_PRINT(("TARBELL: WRITE COMPLETE currentDrive=%d doubleDensity=%d sector=%03d track=%02d data=%02x\n", tarbell_info->currentDrive, tarbell_info->doubleDensity[tarbell_info->currentDrive], pFD17XX->track, pFD17XX->sector, pFD17XX->data));
 
     return(cData);
 }
