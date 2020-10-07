@@ -1,7 +1,6 @@
 /*  s100_tarbell.c: Tarbell 1011/2022 Disk Controller
   
     Created by Patrick Linstruth (patrick@deltecent.com)
-    Based on s100_tarbell.c
   
     Permission is hereby granted, free of charge, to any person obtaining a
     copy of this software and associated documentation files (the "Software"),
@@ -26,7 +25,7 @@
 
 
     These functions support simulated Tarbell model 1011 single density and
-    and model 2022 double density floppy disk controllers.
+    model 2022 double density floppy disk controllers.
 
     The model is selected using the "SET TARBELL MODEL={SD|DD}" command.
 
