@@ -1119,7 +1119,7 @@ ifneq ($(DEBUG),)
   BUILD_FEATURES = - debugging support
 else
   ifneq (,$(findstring clang,$(COMPILER_NAME))$(findstring LLVM,$(COMPILER_NAME)))
-    CFLAGS_O = -O2 -fno-strict-overflow -Wall
+    CFLAGS_O = -O2 -fno-strict-overflow
     GCC_OPTIMIZERS_CMD = ${GCC} --help
     NO_LTO = 1
   else
