@@ -46,7 +46,6 @@
 
 #include "i7010_defs.h"
 #include "sim_card.h"
-#include <time.h>
 
 #define UNIT_V_MSIZE    (UNIT_V_UF + 0)
 #define UNIT_MSIZE      (017 << UNIT_V_MSIZE)
@@ -1528,7 +1527,7 @@ sim_instr(void)
                          struct tm    *tptr;
 
                              temp = 99999;
-                             curtim = time(NULL);        /* get time */
+                             curtim = sim_get_time(NULL);/* get time */
                              tptr = localtime(&curtim);  /* decompose */
                              if (tptr != NULL && tptr->tm_sec != 59) {
                                   /* Convert minutes to 100th hour */

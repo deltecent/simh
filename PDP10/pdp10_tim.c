@@ -41,7 +41,6 @@
 
 #include "pdp10_defs.h"
 #include <math.h>
-#include <time.h>
 
 /* The KS timer works off a 4.100 MHz (243.9024 nsec) oscillator that
  * is independent of all other system timing.
@@ -488,7 +487,7 @@ time_t curtim;
 struct tm *tptr;
 t_stat st = SCPE_OK;
 
-curtim = time (NULL);                                   /* get time */
+curtim = sim_get_time (NULL);                           /* get time */
 tptr = localtime (&curtim);                             /* decompose */
 if (tptr == NULL)
     return SCPE_NXM; 

@@ -1026,7 +1026,7 @@ dte_function(UNIT *uptr)
 
         case PRI_EMRDT:            /* Request Date/Time */
                {
-                   time_t t = time(NULL);
+                   time_t t = sim_get_time(NULL);
                    struct tm *tm = localtime(&t);
                    int yr = tm->tm_year + 1900;
                    int tim = (((tm->tm_hour * 60) + tm->tm_min) * 60) +
@@ -1797,7 +1797,7 @@ t_stat dteo_svc (UNIT *uptr)
     while(not_empty(&cty_out)) {
         char ch = cty_out.buff[cty_out.out_ptr];
         if (ch != 0) {
-            if (sim_putchar(ch) != SCPE_OK) {
+            if (sim_putchar_s(ch) != SCPE_OK) {
                 sim_activate(uptr, 1000);
                 return SCPE_OK;;
             }

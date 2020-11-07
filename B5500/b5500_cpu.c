@@ -95,7 +95,6 @@
 #include "b5500_defs.h"
 #include "sim_timer.h"
 #include <math.h>
-#include <time.h>
 
 #define UNIT_V_MSIZE    (UNIT_V_UF + 0)
 #define UNIT_MSIZE      (7 << UNIT_V_MSIZE)
@@ -2001,6 +2000,7 @@ sim_instr(void)
             reason = sim_process_event();
             if (reason != SCPE_OK)
                  break; /* process */
+            sim_interval--;
         }
         /* Passed time quantum */
         if (sim_interval <= 0) {        /* event queue? */
