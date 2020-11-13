@@ -172,8 +172,8 @@ extern t_stat set_iobase(UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 extern t_stat show_iobase(FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 extern uint32 sim_map_resource(uint32 baseaddr, uint32 size, uint32 resource_type,
                                int32 (*routine)(const int32, const int32, const int32), const char* name, uint8 unmap);
+extern DEVICE *find_dev (const char *cptr);
 
-#define ICOM_MAX_ADAPTERS      1
 #define ICOM_MAX_DRIVES        4
 #define ICOM_SD_SECTOR_LEN     128
 #define ICOM_DD_SECTOR_LEN     256
@@ -510,18 +510,6 @@ typedef struct {
 #define ICOM_CONF_DD         0x10    /* Double Density */
 #define ICOM_CONF_FM         0x20    /* Format Mode */
 
-#define ICOM_STAT_NOTREADY   0x80
-#define ICOM_STAT_RTYPEMSB   0x40
-#define ICOM_STAT_HEADLOAD   0x20
-#define ICOM_STAT_RTYPELSB   0x20
-#define ICOM_STAT_WRITEFAULT 0x20
-#define ICOM_STAT_SEEKERROR  0x10
-#define ICOM_STAT_NOTFOUND   0x10
-#define ICOM_STAT_TRACK0     0x04
-#define ICOM_STAT_LOSTDATA   0x04
-#define ICOM_STAT_INDEX      0x02
-#define ICOM_STAT_DRQ        0x02
-
 #define	ICOM_TYPE_3712       0x00
 #define	ICOM_TYPE_3812       0x01
 
@@ -579,7 +567,6 @@ static uint8 ICOM_DriveNotReady(UNIT *uptr, ICOM_REG *pICOM);
 static const char* icom_description(DEVICE *dptr);
 static void showReadSec(void);
 static void showWriteSec(void);
-
 static int32 icomdev(int32 Addr, int32 rw, int32 data);
 static int32 icomprom(int32 Addr, int32 rw, int32 data);
 static int32 icommem(int32 Addr, int32 rw, int32 data);
@@ -607,7 +594,7 @@ static REG icom_reg[] = {
     { NULL }
 };
 
-#define ICOM_NAME  "iCOM SD/DD Floppy Disk Interface"
+#define ICOM_NAME  "iCOM 3712/3812 Floppy Disk Interface"
 #define ICOM_SNAME "ICOM"
 
 static const char* icom_description(DEVICE *dptr) {
@@ -618,9 +605,6 @@ static const char* icom_description(DEVICE *dptr) {
 #define UNIT_ICOM_VERBOSE        (1 << UNIT_V_ICOM_VERBOSE)
 #define UNIT_V_ICOM_WPROTECT     (UNIT_V_UF + 1)                      /* WRTENB / WRTPROT */
 #define UNIT_ICOM_WPROTECT       (1 << UNIT_V_ICOM_WPROTECT)
-
-#define UNIT_V_SIO_SLEEP    (UNIT_V_UF + 7)     /* sleep after keyboard status check            */
-#define UNIT_SIO_SLEEP      (1 << UNIT_V_SIO_SLEEP)
 
 static MTAB icom_mod[] = {
     { MTAB_XTD|MTAB_VDV,    0,        "IOBASE",  "IOBASE",
@@ -700,7 +684,6 @@ DEVICE icom_dev = {
 static t_stat icom_reset(DEVICE *dptr)
 {
     uint8 i;
-//    ICOM_INFO *pInfo = (ICOM_INFO *)dptr->ctxt;
 
     if (dptr->flags & DEV_DIS) { /* Disconnect I/O Ports */
         sim_map_resource(icom_info->prom_base, icom_info->prom_size, RESOURCE_TYPE_MEMORY, &icomprom, "icomprom", TRUE);
@@ -752,24 +735,27 @@ static t_stat icom_reset(DEVICE *dptr)
 
 static t_stat icom_svc(UNIT *uptr)
 {
+    sim_printf("> icom_svc\r\n");
+
     /*
     ** !! KLUDGE ALERT !!
     **
     ** I have never been able to figure out how to get queues
     ** and _svc routines to work with the specified usec time when
-    ** "SET SIO SLEEP" is enabled. So, this is a kludge to make
+    ** "DEP CLOCK <VALUE>" is enabled. This is a kludge to make
     ** sure at least 1ms has elapsed before clearing the BUSY
-    ** flag. There should probably be a way to tell SIO not to
-    ** sleep when other devices are wanting to implement some
-    ** semblance of timing.
+    ** flag.
     */
     if (icom_info->msTime != sim_os_msec()) {
-        icom_info->ICOM.status &= ~ICOM_STAT_BUSY;
         sim_debug(STATUS_MSG, &icom_dev, "Clear BUSY flag\n");
+        icom_info->ICOM.status &= ~ICOM_STAT_BUSY;
     }
     else {
+        sim_debug(STATUS_MSG, &icom_dev, "_svc called in 0ms\n");
         sim_activate_after_abs(icom_info->uptr[icom_info->currentDrive], 5000);  /* Try another 5ms */
     }
+
+    sim_printf("< icom_svc\r\n");
 
     return SCPE_OK;
 }
@@ -855,8 +841,6 @@ static t_stat icom_detach(UNIT *uptr)
 */
 static t_stat icom_set_membase(UNIT *uptr, int32 val, CONST char *cptr, void *desc)
 {
-//    DEVICE *dptr;
-//    ICOM_INFO *pInfo;
     uint32 newba;
     t_stat r;
 
@@ -864,20 +848,6 @@ static t_stat icom_set_membase(UNIT *uptr, int32 val, CONST char *cptr, void *de
         sim_debug(ERROR_MSG, &icom_dev, "cptr=NULL\n");
         return SCPE_ARG;
     }
-
-//    if (uptr == NULL) {
-//        sim_debug(ERROR_MSG, &icom_dev, "uptr=NULL\n");
-//        return SCPE_IERR;
-//    }
-
-//    dptr = find_dev_from_unit(uptr);
-
-//    if (dptr == NULL) {
-//        sim_debug(ERROR_MSG, &icom_dev, "dptr=NULL\n");
-//        return SCPE_IERR;
-//    }
-
-//    pInfo = (ICOM_INFO *) dptr->ctxt;
 
     newba = get_uint(cptr, 16, 0xFFFF, &r);
 
@@ -910,21 +880,6 @@ static t_stat icom_set_membase(UNIT *uptr, int32 val, CONST char *cptr, void *de
 /* Show Base Address routine */
 t_stat icom_show_membase(FILE *st, UNIT *uptr, int32 val, CONST void *desc)
 {
-//    DEVICE *dptr;
-//    ICOM_INFO *pInfo;
-
-//    if (uptr == NULL) {
-//        return SCPE_IERR;
-//    }
-
-//    dptr = find_dev_from_unit(uptr);
-
-//    if (dptr == NULL) {
-//        return SCPE_IERR;
-//    }
-
-//    pInfo = (ICOM_INFO *) dptr->ctxt;
-
     if (icom_info->mem_base) {
         fprintf(st, "MEM=0x%04X-0x%04X", icom_info->mem_base, icom_info->mem_base+icom_info->mem_size-1);
     }
@@ -996,10 +951,9 @@ static t_stat icom_show_prom(FILE *st, UNIT *uptr, int32 val, CONST void *desc)
 
 static t_stat icom_boot(int32 unitno, DEVICE *dptr)
 {
-
-//    ICOM_INFO *pInfo = (ICOM_INFO *)dptr->ctxt;
-
-    sim_debug(STATUS_MSG, &icom_dev, "Booting Controller at 0x%04x\n", icom_info->prom_base);
+    if (dptr->units[0].flags & UNIT_ICOM_VERBOSE) {
+        sim_printf("Booting using PROM at 0x%04x\n", icom_info->prom_base);
+    }
 
     *((int32 *) sim_PC->loc) = icom_info->prom_base;
 
