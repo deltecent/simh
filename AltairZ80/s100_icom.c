@@ -735,8 +735,6 @@ static t_stat icom_reset(DEVICE *dptr)
 
 static t_stat icom_svc(UNIT *uptr)
 {
-    sim_printf("> icom_svc\r\n");
-
     /*
     ** !! KLUDGE ALERT !!
     **
@@ -754,8 +752,6 @@ static t_stat icom_svc(UNIT *uptr)
         sim_debug(STATUS_MSG, &icom_dev, "_svc called in 0ms\n");
         sim_activate_after_abs(icom_info->uptr[icom_info->currentDrive], 5000);  /* Try another 5ms */
     }
-
-    sim_printf("< icom_svc\r\n");
 
     return SCPE_OK;
 }
