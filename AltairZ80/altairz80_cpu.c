@@ -168,12 +168,14 @@ static t_stat chip_show             (FILE *st, UNIT *uptr, int32 val, CONST void
 static t_stat cpu_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw);
 static t_stat cpu_reset(DEVICE *dptr);
+static t_stat cpu_svc(UNIT *uptr);
 static t_bool cpu_is_pc_a_subroutine_call (t_addr **ret_addrs);
 static t_stat sim_instr_mmu(void);
 static uint32 GetBYTE(register uint32 Addr);
 static void PutWORD(register uint32 Addr, const register uint32 Value);
 static void PutBYTE(register uint32 Addr, const register uint32 Value);
 static const char* cpu_description(DEVICE *dptr);
+t_stat cpu_sleep(uint32 msec);
 void out(const uint32 Port, const uint32 Value);
 uint32 in(const uint32 Port);
 void altairz80_init(void);
@@ -205,7 +207,7 @@ const char* handlerNameForPort(const int32 port);
 */
 
 UNIT cpu_unit = {
-    UDATA (NULL, UNIT_FIX | UNIT_BINK | UNIT_CPU_ALTAIRROM |
+    UDATA (&cpu_svc, UNIT_FIX | UNIT_BINK | UNIT_CPU_ALTAIRROM |
     UNIT_CPU_STOPONHALT | UNIT_CPU_MMU, MAXBANKSIZE)
 };
 
@@ -247,6 +249,8 @@ static  uint32 clockFrequency   = 0;                /* in kHz, 0 means as fast a
 static  uint32 sliceLength      = 10;               /* length of time-slice for CPU speed           */
                                                     /* adjustment in milliseconds                   */
 static  uint32 executedTStates  = 0;                /* executed t-states                            */
+static  uint32 clockTicks       = 0;                /* CPU clock 1ms clock ticks                    */
+static  uint32 sleepTicks       = 0;                /* CPU sleep ticks                              */
 static  uint16 pcq[PCQ_SIZE]    = { 0 };            /* PC queue                                     */
 static  int32 pcq_p             = 0;                /* PC queue ptr                                 */
 static  REG *pcq_r              = NULL;             /* PC queue reg ptr                             */
@@ -455,16 +459,20 @@ REG cpu_reg[] = {
     }, /* 75 */
     { DRDATAD (TSTATES, executedTStates,    32, "Executed t-states for 8080 / Z80 pseudo register"),
         REG_RO              }, /* 76 */
-    { HRDATAD (CAPACITY,cpu_unit.capac,     32, "Size of RAM pseudo register"),
+    { DRDATAD (TICKS, clockTicks,           32, "1ms clock ticks for 8080 / Z80 pseudo register"),
         REG_RO              }, /* 77 */
-    { HRDATAD (PREVCAP, previousCapacity,   32, "Previous size of RAM pseudo register"),
+    { DRDATAD (SLEEP, sleepTicks,           32, "1ms sleep ticks for 8080 / Z80 pseudo register"),
         REG_RO              }, /* 78 */
+    { HRDATAD (CAPACITY,cpu_unit.capac,     32, "Size of RAM pseudo register"),
+        REG_RO              }, /* 79 */
+    { HRDATAD (PREVCAP, previousCapacity,   32, "Previous size of RAM pseudo register"),
+        REG_RO              }, /* 80 */
     { BRDATAD (PCQ,     pcq, 16, 16,        PCQ_SIZE, "Program counter circular buffer for 8080 /Z80 pseudo register"),
-        REG_RO + REG_CIRC   }, /* 79 */
+        REG_RO + REG_CIRC   }, /* 81 */
     { DRDATAD (PCQP,    pcq_p, PCQ_SIZE_LOG2, "Circular buffer head for 8080 / Z80 pseudo register"),
-        REG_HRO             }, /* 80 */
+        REG_HRO             }, /* 82 */
     { HRDATAD (WRU,     sim_int_char,       8, "Interrupt character pseudo register"),
-    }, /* 81 */
+    }, /* 83 */
     { NULL }
 };
 
@@ -2132,7 +2140,8 @@ static t_stat sim_instr_mmu (void) {
                 startTime += sliceLength;
                 tStates -= tStatesInSlice;
                 if (startTime > (now = sim_os_msec()))
-                    sim_os_ms_sleep(startTime - now);
+                    if ((reason = cpu_sleep(startTime - now)))
+                        break;
             }
 
             if (timerInterrupt && (IFF_S & 1)) {
@@ -6180,14 +6189,32 @@ static t_stat sim_instr_mmu (void) {
     return reason;
 }
 
+
+/*
+ * This sequence of instructions is a mix that mimics
+ * a resonable instruction set that is a close estimate
+ * to the normal calibrated result.
+ */
+
+static const char *cpu_clock_precalibrate_commands[] = {
+    "-m 100 IN 08H",
+    "-m 102 ANI 01H",
+    "-m 104 JMP 0100H",
+    "PC 100",
+    NULL
+};
+
 /* reset routine */
 
 static t_stat cpu_reset(DEVICE *dptr) {
     int32 i;
     if (sim_vm_is_subroutine_call == NULL) { /* First time reset? */
         sim_vm_is_subroutine_call = cpu_is_pc_a_subroutine_call;
+        sim_clock_precalibrate_commands = cpu_clock_precalibrate_commands;
+        sim_vm_initial_ips = SIM_INITIAL_IPS * 4;
         altairz80_init();
     }
+    sim_activate_after(&cpu_unit, 1000);    /* start 1ms clock timer */
     AF_S = AF1_S = 0;
     BC_S = DE_S = HL_S = 0;
     BC1_S = DE1_S = HL1_S = 0;
@@ -6207,6 +6234,45 @@ static t_stat cpu_reset(DEVICE *dptr) {
     else
         return SCPE_IERR;
     return SCPE_OK;
+}
+
+/* CPU service routine */
+
+static t_stat cpu_svc(UNIT *uptr)
+{
+    if (sleepTicks) {
+        sleepTicks--;
+    }
+
+    clockTicks++;
+
+    sim_activate_after(uptr, 1000);    /* 1ms timer */
+
+    return SCPE_OK;
+}
+
+/*
+** This function replaces sim_os_ms_sleep by setting
+** sleepTicks to the requested millisecond value and
+** waiting for sleepTicks to reach 0. While waiting
+** decrement sim_interval and call sim_process_events
+** to keep things moving.
+*/
+t_stat cpu_sleep(uint32 msec)
+{
+    t_stat reason = SCPE_OK;
+
+    sleepTicks = msec;
+
+    while (sleepTicks) {
+        if (--sim_interval <= 0) {
+            if ((reason = sim_process_event())) {
+                break;
+            }
+        }
+    }
+
+    return reason;
 }
 
 static t_bool cpu_is_pc_a_subroutine_call (t_addr **ret_addrs) {

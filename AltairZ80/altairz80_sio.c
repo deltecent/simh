@@ -1590,8 +1590,11 @@ void do_SIMH_sleep(void) {
      Otherwise there is the possibility that such interrupts are skipped. */
     if ((simh_unit.flags & UNIT_SIMH_TIMERON) && rtc_avail && (sim_os_msec() + 1 >= timeOfNextInterrupt))
         return;
+#if 0   // Let the CPU handle sleeping
     if (SIMHSleep && !sio_unit.u4)  /* time to sleep and SIO not attached to a file */
         sim_os_ms_sleep(SIMHSleep);
+    }
+#endif
 }
 
 static int32 simh_out(const int32 port, const int32 data) {
