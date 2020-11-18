@@ -4114,6 +4114,152 @@ write (1, &c, 1);
 return SCPE_OK;
 }
 
+/* macOS routines, from Patrick Linstruth */
+
+#elif defined (__APPLE__)
+
+#include <termios.h>
+#include <unistd.h>
+
+struct termios cmdtty,runtty;
+
+static t_stat sim_os_ttinit (void)
+{
+    sim_debug (DBG_TRC, &sim_con_telnet, "sim_os_ttinit() (__APPLE__)\n");
+
+    if (!isatty (STDIN_FILENO))                           /* skip if !tty */
+        return SCPE_OK;
+    if (tcgetattr (STDIN_FILENO, &cmdtty) < 0)                         /* get old flags */
+        return SCPE_TTIERR;
+    runtty = cmdtty;
+    runtty.c_lflag = runtty.c_lflag & ~(ECHO | ICANON);     /* no echo or edit */
+    runtty.c_oflag = runtty.c_oflag & ~OPOST;               /* no output edit */
+    runtty.c_iflag = runtty.c_iflag & ~ICRNL;               /* no cr conversion */
+    runtty.c_cc[VINTR] = sim_int_char;                      /* interrupt */
+    runtty.c_cc[VQUIT] = 0;                                 /* no quit */
+    runtty.c_cc[VERASE] = 0;
+    runtty.c_cc[VKILL] = 0;
+    runtty.c_cc[VEOF] = 0;
+    runtty.c_cc[VEOL] = 0;
+    runtty.c_cc[VSTART] = 0;                                /* no host sync */
+    runtty.c_cc[VSUSP] = 0;
+    runtty.c_cc[VSTOP] = 0;
+    runtty.c_cc[VMIN] = 0;                                  /* no waiting */
+    runtty.c_cc[VTIME] = 0;
+    return SCPE_OK;
+}
+
+static t_stat sim_os_ttrun (void)
+{
+    sim_debug (DBG_TRC, &sim_con_telnet, "sim_os_ttrun() (__APPLE__)\n");
+
+    if (!isatty (STDIN_FILENO))                           /* skip if !tty */
+        return SCPE_OK;
+
+    runtty.c_cc[VINTR] = sim_int_char;                      /* in case changed */
+
+#if (defined(__GNUC__) && !defined(__OPTIMIZE__))       /* Debug build? */
+    if (sim_dbg_int_char == 0)
+        sim_dbg_int_char = sim_int_char + 1;
+    runtty.c_cc[VINTR] = sim_dbg_int_char;                  /* let debugger get SIGINT with next highest char */
+    if (!sigint_message_issued) {
+        char sigint_name[8];
+
+        if (isprint(sim_dbg_int_char&0xFF))
+            sprintf(sigint_name, "'%c'", sim_dbg_int_char&0xFF);
+        else
+            if (sim_dbg_int_char <= 26)
+                sprintf(sigint_name, "^%c", '@' + (sim_dbg_int_char&0xFF));
+            else
+                sprintf(sigint_name, "'\\%03o'", sim_dbg_int_char&0xFF);
+        sigint_message_issued = TRUE;
+        sim_messagef (SCPE_OK, "SIGINT will be delivered to your debugger when the %s character is entered\n", sigint_name);
+    }
+#endif /* Debug build */
+
+    if (tcsetattr (STDIN_FILENO, TCSANOW, &runtty) < 0)
+        return SCPE_TTIERR;
+
+    sim_os_set_thread_priority (PRIORITY_BELOW_NORMAL);     /* try to lower pri */
+
+    return SCPE_OK;
+}
+
+static t_stat sim_os_ttcmd (void)
+{
+    sim_debug (DBG_TRC, &sim_con_telnet, "sim_os_ttcmd() (__APPLE__)\n");
+
+    if (!isatty(STDIN_FILENO))                           /* skip if !tty */
+        return SCPE_OK;
+
+    sim_os_set_thread_priority (PRIORITY_NORMAL);           /* try to raise pri */
+
+    if (tcsetattr (STDIN_FILENO, TCSANOW, &cmdtty) < 0)
+        return SCPE_TTIERR;
+
+    return SCPE_OK;
+}
+
+static t_stat sim_os_ttclose (void)
+{
+    return sim_ttcmd ();
+}
+
+static t_bool sim_os_ttisatty (void)
+{
+    return isatty (STDIN_FILENO);
+}
+
+static t_stat sim_os_poll_kbd (void)
+{
+    unsigned char buf[1];
+    int status = 0;
+
+    sim_debug (DBG_TRC, &sim_con_telnet, "sim_os_poll_kbd() (__APPLE__)\n");
+
+    if (sim_os_poll_kbd_ready (0))
+        status = read (STDIN_FILENO, buf, 1);
+    if (status != 1)
+        return SCPE_OK;
+    if (sim_brk_char && (buf[0] == sim_brk_char))
+        return SCPE_BREAK;
+    if (sim_int_char && (buf[0] == sim_int_char))
+        return SCPE_STOP;
+
+    return (buf[0] | SCPE_KFLAG);
+}
+
+static t_bool sim_os_poll_kbd_ready (int ms_timeout)
+{
+    fd_set readfds;
+    struct timeval timeout;
+
+    if (!isatty(STDIN_FILENO)) {                      /* skip if !tty */
+        sim_os_ms_sleep (ms_timeout);
+        return FALSE;
+    }
+
+    FD_ZERO (&readfds);
+    FD_SET (STDIN_FILENO, &readfds);
+    timeout.tv_sec = (ms_timeout*1000)/1000000;
+    timeout.tv_usec = (ms_timeout*1000)%1000000;
+    return (1 == select (1, &readfds, NULL, NULL, &timeout));
+}
+
+static t_stat sim_os_putchar (int32 out)
+{
+    char c;
+
+    c = out;
+
+    if (write (STDOUT_FILENO, &c, 1) != 1)
+        return SCPE_IOERR;
+
+    return SCPE_OK;
+}
+
+/* End of __APPLE__ */
+
 /* POSIX UNIX routines, from Leendert Van Doorn */
 
 #else
