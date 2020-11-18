@@ -1593,7 +1593,6 @@ void do_SIMH_sleep(void) {
 #if 0   // Let the CPU handle sleeping
     if (SIMHSleep && !sio_unit.u4)  /* time to sleep and SIO not attached to a file */
         sim_os_ms_sleep(SIMHSleep);
-    }
 #endif
 }
 
