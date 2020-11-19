@@ -176,6 +176,7 @@ static void PutWORD(register uint32 Addr, const register uint32 Value);
 static void PutBYTE(register uint32 Addr, const register uint32 Value);
 static const char* cpu_description(DEVICE *dptr);
 static t_bool cpu_fprint_stopped_gen (FILE *st, t_stat v, REG *pc, DEVICE *dptr);
+static t_stat cpu_cmd_display(int32 flag, CONST char *cptr);
 t_stat cpu_sleep(uint32 msec);
 void out(const uint32 Port, const uint32 Value);
 uint32 in(const uint32 Port);
@@ -6204,6 +6205,11 @@ static const char *cpu_clock_precalibrate_commands[] = {
     NULL
 };
 
+static CTAB cpu_cmd_tbl[] = {
+    { "D", &cpu_cmd_display, 0, NULL, NULL, NULL },
+    { NULL, NULL, 0, NULL, NULL, NULL }
+};
+
 /* reset routine */
 
 static t_stat cpu_reset(DEVICE *dptr) {
@@ -6211,6 +6217,7 @@ static t_stat cpu_reset(DEVICE *dptr) {
     if (sim_vm_is_subroutine_call == NULL) { /* First time reset? */
         sim_vm_is_subroutine_call = cpu_is_pc_a_subroutine_call;
         sim_clock_precalibrate_commands = cpu_clock_precalibrate_commands;
+        sim_vm_cmd = cpu_cmd_tbl;
         sim_vm_fprint_stopped_gen = cpu_fprint_stopped_gen;
         sim_vm_initial_ips = SIM_INITIAL_IPS * 4;
         altairz80_init();
@@ -7207,5 +7214,56 @@ static t_bool cpu_fprint_stopped_gen (FILE *st, t_stat v, REG *pc, DEVICE *dptr)
             }
 
     return FALSE;
+}
+
+static t_addr disp_addr = 0x0100;
+
+static t_stat cpu_cmd_display(int32 flag, const char *cptr) {
+    const char *result;
+    char abuf[16];
+    t_addr lo, hi, last;
+    uint8 byte;
+
+    if ((result = get_range(NULL, cptr, &lo, &hi, 16, ADDRMASK, 0)) == NULL) {
+        lo = hi = disp_addr;
+    }
+    else {
+        disp_addr = lo & 0xfff0;
+    }
+
+    if (hi == lo) {
+        hi = (lo & 0xfff0) + 0xff;
+    }
+
+    last = hi | 0x000f;
+
+    while (disp_addr <= last && disp_addr <= ADDRMASK) {
+
+        if (!(disp_addr & 0x000f)) {
+            sim_printf("%04X ", disp_addr);
+        }
+
+        if (disp_addr < lo || disp_addr > hi) {
+            printf("   ");
+            abuf[disp_addr % 16] = ' ';
+        }
+        else {
+            byte = GetBYTEWrapper(disp_addr);
+            sim_printf("%02X ", byte);
+            abuf[disp_addr % 16] = (sim_isprint(byte)) ? byte : '.';
+        }
+
+        if ((disp_addr & 0x000f) == 0x000f) {
+            sim_printf("%16.16s\n", abuf);
+        }
+
+        disp_addr++;
+    }
+
+    if (disp_addr > ADDRMASK) {
+        disp_addr = 0;
+    }
+
+    return SCPE_OK;
 }
 
