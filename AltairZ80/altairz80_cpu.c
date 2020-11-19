@@ -175,6 +175,7 @@ static uint32 GetBYTE(register uint32 Addr);
 static void PutWORD(register uint32 Addr, const register uint32 Value);
 static void PutBYTE(register uint32 Addr, const register uint32 Value);
 static const char* cpu_description(DEVICE *dptr);
+static t_bool cpu_fprint_stopped_gen (FILE *st, t_stat v, REG *pc, DEVICE *dptr);
 t_stat cpu_sleep(uint32 msec);
 void out(const uint32 Port, const uint32 Value);
 uint32 in(const uint32 Port);
@@ -192,7 +193,6 @@ void setClockFrequency(const uint32 Value);
 uint32 getCommon(void);
 uint32 sim_map_resource(uint32 baseaddr, uint32 size, uint32 resource_type,
                         int32 (*routine)(const int32, const int32, const int32), const char* name, uint8 unmap);
-
 void PutBYTEExtended(register uint32 Addr, const register uint32 Value);
 uint32 GetBYTEExtended(register uint32 Addr);
 void cpu_raise_interrupt(uint32 irq);
@@ -6211,6 +6211,7 @@ static t_stat cpu_reset(DEVICE *dptr) {
     if (sim_vm_is_subroutine_call == NULL) { /* First time reset? */
         sim_vm_is_subroutine_call = cpu_is_pc_a_subroutine_call;
         sim_clock_precalibrate_commands = cpu_clock_precalibrate_commands;
+        sim_vm_fprint_stopped_gen = cpu_fprint_stopped_gen;
         sim_vm_initial_ips = SIM_INITIAL_IPS * 4;
         altairz80_init();
     }
@@ -7150,3 +7151,61 @@ void cpu_raise_interrupt(uint32 irq) {
                (chiptype < NUM_CHIP_TYPE) ? cpu_mod[chiptype].mstring : "????");
     }
 }
+
+static t_bool cpu_fprint_stopped_gen (FILE *st, t_stat v, REG *pc, DEVICE *dptr) {
+    t_value op[INST_MAX_BYTES];
+    int i;
+
+    fputc ('\n', st);                                       /* start on a new line */
+
+    if (v >= SCPE_BASE)                                     /* SCP error? */
+        fputs (sim_error_text (v), st);                     /* print it from the SCP list */
+    else {                                                  /* VM error */
+        if (sim_stop_messages [v])
+            fputs (sim_stop_messages [v], st);              /* print the VM-specific message */
+        else
+            fprintf (st, "Unknown simulator stop code %d\n", v);
+    }
+
+    for (i = 0; i < INST_MAX_BYTES; i++) {
+        op[i] = GetBYTE(PC_S + i);
+    }
+
+    fputc (' ', st);
+  
+            if (chiptype == CHIP_TYPE_8080) {
+                /*
+                ** Use DDT output:
+                ** CfZfMfEfIf A=bb B=dddd D=dddd H=dddd S=dddd P=dddd inst
+                */
+                fprintf(st, "C%dZ%dM%dE%dI%d A=%02X B=%04X D=%04X H=%04X S=%04X P=%04X ",
+                    TSTFLAG2(AF_S, C),
+                    TSTFLAG2(AF_S, Z),
+                    TSTFLAG2(AF_S, S),
+                    TSTFLAG2(AF_S, P),
+                    TSTFLAG2(AF_S, H),
+                    HIGH_REGISTER(AF_S), BC_S, DE_S, HL_S, SP_S, PC_S);
+                fprint_sym (st, PC_S, op, &cpu_unit, SWMASK ('M'));
+                fprintf(st, "\n");
+            } else {    /* Z80 */
+                /*
+                ** Use DDT/Z output:
+                */
+                fprintf(st, "C%dZ%dS%dV%dH%dN%d A =%02X BC =%04X DE =%04X HL =%04X S =%04X P =%04X ",
+                    TSTFLAG2(AF_S, C),
+                    TSTFLAG2(AF_S, Z),
+                    TSTFLAG2(AF_S, S),
+                    TSTFLAG2(AF_S, P),
+                    TSTFLAG2(AF_S, H),
+                    TSTFLAG2(AF_S, N),
+                    HIGH_REGISTER(AF_S), BC_S, DE_S, HL_S, SP_S, PC_S);
+                fprint_sym (st, PC_S, op, &cpu_unit, SWMASK ('M'));
+                fputc('\n', st);
+                fprintf(st, "                  A'=%02X BC'=%04X DE'=%04X HL'=%04X IX=%04X IY=%04X ",
+                    HIGH_REGISTER(AF1_S), BC1_S, DE1_S, HL1_S, IX_S, IY_S);
+                fputc('\n', st);
+            }
+
+    return FALSE;
+}
+
