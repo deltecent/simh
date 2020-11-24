@@ -714,7 +714,7 @@ static t_stat icom_reset(DEVICE *dptr)
     icom_info->ICOM.track = 0;
     icom_info->ICOM.sector = 1;
     icom_info->ICOM.command = 0;
-    icom_info->ICOM.status = ICOM_STAT_MEDIASTAT;
+    icom_info->ICOM.status = 0;
     icom_info->ICOM.rData = 0;
     icom_info->ICOM.wData = 0;
     icom_info->ICOM.rDataBuf = 0;
@@ -784,7 +784,7 @@ static t_stat icom_attach(UNIT *uptr, CONST char *cptr)
     uptr->u3 = IMAGE_TYPE_DSK;
 
     sim_debug(VERBOSE_MSG, uptr->dptr, "unit %d, attached to '%s' size=%d interface=%s\n", 
-        i, cptr, uptr->capac, (icom_prom == icom_3712_prom) ? "FD3712" : "FD3812");
+        i, cptr, uptr->capac, (icom_info->boardType == ICOM_TYPE_3712) ? "FD3712" : "FD3812");
 
     return SCPE_OK;
 }
@@ -884,11 +884,13 @@ static t_stat icom_set_type(UNIT *uptr, int32 val, CONST char *cptr, void *desc)
 
     if (!strcmp(cptr, "3812")) {
         icom_info->boardType = ICOM_TYPE_3812;
+        icom_info->ICOM.status |= ICOM_STAT_MEDIASTAT;
         icom_prom = icom_3812_prom;
     } else if (!strcmp(cptr, "3712")) {
         icom_info->boardType = ICOM_TYPE_3712;
-        icom_prom = icom_3712_prom;
+        icom_info->ICOM.status &= ~ICOM_STAT_MEDIASTAT;
         icom_info->ICOM.bytesPerSec = ICOM_SD_SECTOR_LEN;
+        icom_prom = icom_3712_prom;
     } else {
         return SCPE_ARG;
     }
