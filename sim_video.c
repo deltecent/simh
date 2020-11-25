@@ -40,7 +40,6 @@ static VID_QUIT_CALLBACK vid_quit_callback = NULL;
 static VID_GAMEPAD_CALLBACK motion_callback[10];
 static VID_GAMEPAD_CALLBACK button_callback[10];
 static int vid_gamepad_inited = 0;
-static int vid_gamepad_ok = 0; /* Or else just joysticks. */
 
 t_stat vid_register_quit_callback (VID_QUIT_CALLBACK callback)
 {
@@ -94,6 +93,8 @@ return dev ? sim_dname(dev) : "Video Device";
 }
 
 #if defined(USE_SIM_VIDEO) && defined(HAVE_LIBSDL)
+
+static int vid_gamepad_ok = 0; /* Or else just joysticks. */
 
 char vid_release_key[64] = "Ctrl-Right-Shift";
 
@@ -610,7 +611,6 @@ if (0 == (--vid_gamepad_inited)) {
 
 static t_stat vid_init_window (VID_DISPLAY *vptr, DEVICE *dptr, const char *title, uint32 width, uint32 height, int flags)
 {
-int wait_count = 0;
 t_stat stat;
 
 if ((strlen(sim_name) + 7 + (dptr ? strlen (dptr->name) : 0) + (title ? strlen (title) : 0)) < sizeof (vptr->vid_title))
@@ -2446,7 +2446,6 @@ static int vid_beep_samples;
 
 static void vid_audio_callback(void *ctx, Uint8 *stream, int length)
 {
-int16 *data = (int16 *)stream;
 int i, sum, remnant = ((vid_beep_samples - vid_beep_offset) * sizeof (*vid_beep_data));
 
 if (length > remnant) {
@@ -2614,6 +2613,59 @@ t_stat vid_set_fullscreen (t_bool flag)
 {
 sim_printf ("video support unavailable\n");
 return SCPE_OK;
+}
+
+t_stat vid_open_window (VID_DISPLAY **vptr, DEVICE *dptr, const char *title, uint32 width, uint32 height, int flags)
+{
+*vptr = NULL;
+return SCPE_NOFNC;
+}
+
+t_stat vid_close_window (VID_DISPLAY *vptr)
+{
+return SCPE_OK;
+}
+
+uint32 vid_map_rgb_window (VID_DISPLAY *vptr, uint8 r, uint8 g, uint8 b)
+{
+return 0;
+}
+
+void vid_draw_window (VID_DISPLAY *vptr, int32 x, int32 y, int32 w, int32 h, uint32 *buf)
+{
+return;
+}
+
+void vid_refresh_window (VID_DISPLAY *vptr)
+{
+return;
+}
+
+t_stat vid_set_cursor_window (VID_DISPLAY *vptr, t_bool visible, uint32 width, uint32 height, uint8 *data, uint8 *mask, uint32 hot_x, uint32 hot_y)
+{
+return SCPE_NOFNC;
+}
+
+t_bool vid_is_fullscreen_window (VID_DISPLAY *vptr)
+{
+sim_printf ("video support unavailable\n");
+return FALSE;
+}
+
+t_stat vid_set_fullscreen_window (VID_DISPLAY *vptr, t_bool flag)
+{
+sim_printf ("video support unavailable\n");
+return SCPE_OK;
+}
+
+void vid_set_cursor_position_window (VID_DISPLAY *vptr, int32 x, int32 y)
+{
+return;
+}
+
+const char *vid_key_name (int32 key)
+{
+return "";
 }
 
 #endif /* defined(USE_SIM_VIDEO) */
