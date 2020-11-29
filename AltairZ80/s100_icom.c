@@ -512,8 +512,8 @@ typedef struct {
 #define ICOM_CONF_DD         0x10    /* Double Density */
 #define ICOM_CONF_FM         0x20    /* Format Mode */
 
-#define	ICOM_TYPE_3712       0x00
-#define	ICOM_TYPE_3812       0x01
+#define ICOM_TYPE_3712       0x00
+#define ICOM_TYPE_3812       0x01
 
 typedef struct {
     uint32    mem_base;       /* Memory Base Address                 */
@@ -842,7 +842,7 @@ static t_stat icom_set_membase(UNIT *uptr, int32 val, CONST char *cptr, void *de
     }
 
     if (newba) {
-	r = set_membase(uptr, val, cptr, desc);
+        r = set_membase(uptr, val, cptr, desc);
         if (r) {
             sim_debug(ERROR_MSG, &icom_dev, "Error setting MEM resource at 0x%04x\n", icom_info->mem_base);
             icom_info->mem_base = 0;
@@ -1165,7 +1165,7 @@ static uint32 ICOM_WriteSector(UNIT *uptr, uint8 track, uint8 sector, uint8 *buf
 
 static uint32 ICOM_FormatTrack(UNIT *uptr, uint8 track, uint8 *buffer)
 {
-    uint16 sector;
+    uint8 sector;
     uint32 rtn;
 
     for (sector = 1; sector <= ICOM_SPT; sector++) {
