@@ -4230,6 +4230,11 @@ static t_stat sim_os_ttclose (void)
     return sim_ttcmd ();
 }
 
+static t_bool sim_os_fd_isatty (int fd)
+{
+return isatty (fd);
+}
+
 static t_bool sim_os_ttisatty (void)
 {
     return isatty (STDIN_FILENO);
