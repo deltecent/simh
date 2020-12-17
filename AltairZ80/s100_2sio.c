@@ -570,7 +570,7 @@ static t_stat m2sio_set_baud(UNIT *uptr, int32 value, const char *cptr, void *de
                     r = m2sio_config_line(uptr);
 
                     return r;
- 
+
                 default:
                     break;
             }
@@ -638,7 +638,7 @@ static t_stat m2sio_config_line(UNIT *uptr)
         sim_debug(STATUS_MSG, uptr->dptr, "port configuration set to '%s'.\n", config);
 
         /*
-        ** AltairZ80 and TMXR refuse to want to play together 
+        ** AltairZ80 and TMXR refuse to want to play together
         ** nicely when the CLOCK register is set to anything
         ** other than 0.
         **
@@ -731,7 +731,7 @@ static int32 m2sio_io(DEVICE *dptr, int32 addr, int32 io, int32 data)
 static int32 m2sio_stat(DEVICE *dptr, int32 io, int32 data)
 {
     M2SIO_CTX *xptr;
-    int32 r,s;
+    int32 r;
 
     xptr = (M2SIO_CTX *) dptr->ctxt;
 
