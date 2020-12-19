@@ -1777,8 +1777,8 @@ LGP_OPT = -I ${LGPD}
 SDSD = ${SIMHD}/SDS
 SDS = ${SDSD}/sds_cpu.c ${SDSD}/sds_drm.c ${SDSD}/sds_dsk.c ${SDSD}/sds_io.c \
 	${SDSD}/sds_lp.c ${SDSD}/sds_mt.c ${SDSD}/sds_mux.c ${SDSD}/sds_rad.c \
-	${SDSD}/sds_stddev.c ${SDSD}/sds_sys.c
-SDS_OPT = -I ${SDSD}
+	${SDSD}/sds_stddev.c ${SDSD}/sds_sys.c ${SDSD}/sds_cp.c ${SDSD}/sds_cr.c
+SDS_OPT = -I ${SDSD} -DUSE_SIM_CARD
 
 
 SWTP6800D = ${SIMHD}/swtp6800/swtp6800
@@ -2099,6 +2099,14 @@ ATT3B2M400 = ${ATT3B2D}/3b2_400_cpu.c ${ATT3B2D}/3b2_400_sys.c \
 	${ATT3B2D}/3b2_ni.c
 ATT3B2_OPT = -DUSE_INT64 -DUSE_ADDR64 -I ${ATT3B2D} ${NETWORK_OPT}
 
+SIGMAD = ${SIMHD}/sigma
+SIGMA = ${SIGMAD}/sigma_cpu.c ${SIGMAD}/sigma_sys.c ${SIGMAD}/sigma_cis.c \
+	${SIGMAD}/sigma_coc.c ${SIGMAD}/sigma_dk.c ${SIGMAD}/sigma_dp.c \
+	${SIGMAD}/sigma_fp.c ${SIGMAD}/sigma_io.c ${SIGMAD}/sigma_lp.c \
+	${SIGMAD}/sigma_map.c ${SIGMAD}/sigma_mt.c ${SIGMAD}/sigma_pt.c \
+    ${SIGMAD}/sigma_rad.c ${SIGMAD}/sigma_rtc.c ${SIGMAD}/sigma_tt.c
+SIGMA_OPT = -I ${SIGMAD}
+
 ###
 ### Experimental simulators
 ###
@@ -2117,14 +2125,6 @@ CDC1700_OPT = -I ${CDC1700D}
 ###
 ### Unsupported/Incomplete simulators
 ###
-
-SIGMAD = ${SIMHD}/sigma
-SIGMA = ${SIGMAD}/sigma_cpu.c ${SIGMAD}/sigma_sys.c ${SIGMAD}/sigma_cis.c \
-	${SIGMAD}/sigma_coc.c ${SIGMAD}/sigma_dk.c ${SIGMAD}/sigma_dp.c \
-	${SIGMAD}/sigma_fp.c ${SIGMAD}/sigma_io.c ${SIGMAD}/sigma_lp.c \
-	${SIGMAD}/sigma_map.c ${SIGMAD}/sigma_mt.c ${SIGMAD}/sigma_pt.c \
-    ${SIGMAD}/sigma_rad.c ${SIGMAD}/sigma_rtc.c ${SIGMAD}/sigma_tt.c
-SIGMA_OPT = -I ${SIGMAD}
 
 ALPHAD = ${SIMHD}/alpha
 ALPHA = ${ALPHAD}/alpha_500au_syslist.c ${ALPHAD}/alpha_cpu.c \
