@@ -7235,38 +7235,38 @@ static t_bool cpu_fprint_stopped_gen (FILE *st, t_stat v, REG *pc, DEVICE *dptr)
 
     fputc (' ', st);
   
-            if (chiptype == CHIP_TYPE_8080) {
-                /*
-                ** Use DDT output:
-                ** CfZfMfEfIf A=bb B=dddd D=dddd H=dddd S=dddd P=dddd inst
-                */
-                fprintf(st, "C%dZ%dM%dE%dI%d A=%02X B=%04X D=%04X H=%04X S=%04X P=%04X ",
-                    TSTFLAG2(AF_S, C),
-                    TSTFLAG2(AF_S, Z),
-                    TSTFLAG2(AF_S, S),
-                    TSTFLAG2(AF_S, P),
-                    TSTFLAG2(AF_S, H),
-                    HIGH_REGISTER(AF_S), BC_S, DE_S, HL_S, SP_S, PC_S);
-                fprint_sym (st, PC_S, op, &cpu_unit, SWMASK ('M'));
-                fprintf(st, "\n");
-            } else {    /* Z80 */
-                /*
-                ** Use DDT/Z output:
-                */
-                fprintf(st, "C%dZ%dS%dV%dH%dN%d A =%02X BC =%04X DE =%04X HL =%04X S =%04X P =%04X ",
-                    TSTFLAG2(AF_S, C),
-                    TSTFLAG2(AF_S, Z),
-                    TSTFLAG2(AF_S, S),
-                    TSTFLAG2(AF_S, P),
-                    TSTFLAG2(AF_S, H),
-                    TSTFLAG2(AF_S, N),
-                    HIGH_REGISTER(AF_S), BC_S, DE_S, HL_S, SP_S, PC_S);
-                fprint_sym (st, PC_S, op, &cpu_unit, SWMASK ('M'));
-                fputc('\n', st);
-                fprintf(st, "                  A'=%02X BC'=%04X DE'=%04X HL'=%04X IX=%04X IY=%04X ",
-                    HIGH_REGISTER(AF1_S), BC1_S, DE1_S, HL1_S, IX_S, IY_S);
-                fputc('\n', st);
-            }
+    if (chiptype == CHIP_TYPE_8080) {
+        /*
+        ** Use DDT output:
+        ** CfZfMfEfIf A=bb B=dddd D=dddd H=dddd S=dddd P=dddd inst
+        */
+        fprintf(st, "C%dZ%dM%dE%dI%d A=%02X B=%04X D=%04X H=%04X S=%04X P=%04X ",
+            TSTFLAG2(AF_S, C),
+            TSTFLAG2(AF_S, Z),
+            TSTFLAG2(AF_S, S),
+            TSTFLAG2(AF_S, P),
+            TSTFLAG2(AF_S, H),
+            HIGH_REGISTER(AF_S), (uint16) BC_S, (uint16) DE_S, (uint16) HL_S, (uint16) SP_S, (uint16) PC_S);
+        fprint_sym (st, PC_S, op, &cpu_unit, SWMASK ('M'));
+        fprintf(st, "\n");
+    } else {    /* Z80 */
+        /*
+        ** Use DDT/Z output:
+        */
+        fprintf(st, "C%dZ%dS%dV%dH%dN%d A =%02X BC =%04X DE =%04X HL =%04X S =%04X P =%04X ",
+            TSTFLAG2(AF_S, C),
+            TSTFLAG2(AF_S, Z),
+            TSTFLAG2(AF_S, S),
+            TSTFLAG2(AF_S, P),
+            TSTFLAG2(AF_S, H),
+            TSTFLAG2(AF_S, N),
+            HIGH_REGISTER(AF_S), (uint16) BC_S, (uint16) DE_S, (uint16) HL_S, (uint16) SP_S, (uint16) PC_S);
+        fprint_sym (st, PC_S, op, &cpu_unit, SWMASK ('M'));
+        fputc('\n', st);
+        fprintf(st, "                  A'=%02X BC'=%04X DE'=%04X HL'=%04X IX=%04X IY=%04X ",
+            HIGH_REGISTER(AF1_S), (uint16) BC1_S, (uint16) DE1_S, (uint16) HL1_S, (uint16) IX_S, (uint16) IY_S);
+        fputc('\n', st);
+    }
 
     return FALSE;
 }
