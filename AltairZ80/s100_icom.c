@@ -459,7 +459,7 @@ static uint8 icom_3812_prom[ICOM_PROM_SIZE] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff 
 };
 
-static uint8 *icom_prom = icom_3712_prom;
+static uint8 *icom_prom = icom_3812_prom;
 
 /*
 ** ICOM Registers and Interface Controls
