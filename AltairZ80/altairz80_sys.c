@@ -70,6 +70,8 @@ extern DEVICE jade_dev;
 extern DEVICE tarbell_dev;
 extern DEVICE icom_dev;
 extern DEVICE dj2d_dev;
+extern DEVICE mmd_dev;
+extern DEVICE mmdm_dev;
 extern DEVICE m2sio0_dev;
 extern DEVICE m2sio1_dev;
 extern DEVICE pmmi_dev;
@@ -133,6 +135,9 @@ DEVICE      *sim_devices[]  = {
     &icom_dev,
     /* Disk Jockey 2D Devices */
     &dj2d_dev,
+    /* Morrow Micro Decision Devices */
+    &mmd_dev,
+    &mmdm_dev,
     /* MITS 88-2SIO */
     &m2sio0_dev,
     &m2sio1_dev,

@@ -356,6 +356,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\AltairZ80\s100_mmd.c"
+				>
+			</File>
+			<File
 				RelativePath="..\AltairZ80\s100_pmmi.c"
 				>
 			</File>
