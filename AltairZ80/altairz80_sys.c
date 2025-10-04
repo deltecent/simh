@@ -57,6 +57,7 @@ extern DEVICE disk2_dev;
 extern DEVICE disk3_dev;
 extern DEVICE selchan_dev;
 extern DEVICE ss1_dev;
+extern DEVICE ss1uart_dev;
 extern DEVICE if3_dev;
 extern DEVICE i8272_dev;
 extern DEVICE ibc_dev;
@@ -137,7 +138,7 @@ DEVICE      *sim_devices[]  = {
     &adcs6_dev,
     &hdc1001_dev,
     /* Compupro Devices */
-    &disk1a_dev, &disk2_dev, &disk3_dev, &ss1_dev, &mdriveh_dev, &selchan_dev, &if3_dev,
+    &disk1a_dev, &disk2_dev, &disk3_dev, &ss1_dev, &ss1uart_dev, &mdriveh_dev, &selchan_dev, &if3_dev,
     /* Cromemco Devices */
     &cromfdc_dev, &tuart0_dev, &tuart1_dev, &tuart2_dev,
     /* Integrated Business Computers (IBC) Devices */
