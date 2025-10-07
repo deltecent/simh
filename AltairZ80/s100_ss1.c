@@ -68,6 +68,7 @@ extern t_stat set_iobase(UNIT *uptr, int32 val, CONST char *cptr, void *desc);
 extern t_stat show_iobase(FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 extern uint32 sim_map_resource(uint32 baseaddr, uint32 size, uint32 resource_type,
                                int32 (*routine)(const int32, const int32, const int32), const char* name, uint8 unmap);
+extern const char* handlerNameForPort(const int32 port);
 extern uint32 PCX;
 
 static t_stat ss1_reset(DEVICE *ss1_dev);
@@ -672,7 +673,7 @@ static t_stat ss1_svc (UNIT *uptr)
     uint8 irq_bit = 0;
 
     /* Handle SS1 UART Rx interrupts here. */
-    cData = sio0s(0x5D, 0, 0);
+    cData = (strcmp(handlerNameForPort(0x5D), "ss1dev")) ? 0x00 : sio0s(0x5D, 0, 0);
     if(cData & 2) { /* && ((ss1_pic[SLAVE_PIC].IMR & 0x80) == 0)) { */
         ss1_pic[SLAVE_PIC].ISR |= 0x80;
         generate_ss1_interrupt();
