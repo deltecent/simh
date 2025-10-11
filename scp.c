@@ -1585,10 +1585,10 @@ static const char simh_help1[] =
       " Expression can contain arbitrary combinations of constant\n"
       " values, simulator registers and environment variables \n"
       "5Examples:\n"
-      "++SET ENV -A A=7+2\n"
-      "++SET ENV -A A=A-1\n"
-      "++ECHO A=%%A%%\n"
-      "++A=8\n"
+      "++SET ENV -A VAR=7+2\n"
+      "++SET ENV -A VAR=VAR-1\n"
+      "++ECHO VAR=%%VAR%%\n"
+      "++VAR=8\n"
       "4Gathering Input From A User\n"
       " Input from a user can be obtained by:\n\n"
       "+set environment -P \"Prompt String\" name=default\n\n"
@@ -1811,7 +1811,8 @@ static const char simh_help2[] =
       " %%SIM_VM_RELEASE%%, %%SIM_VERSION_MODE%%, %%SIM_GIT_COMMIT_ID%%,\n"
       " %%SIM_GIT_COMMIT_TIME%%, %%SIM_ARCHIVE_GIT_COMMIT_ID%%,\n"
       " %%SIM_ARCHIVE_GIT_COMMIT_TIME%%, %%SIM_RUNLIMIT%%, %%SIM_RUNLIMIT_UNITS%%,\n"
-      " %%SIM_HOST_CORE_COUNT%%, %%SIM_HOST_MAX_THREADS%%\n\n"
+      " %%SIM_HOST_CORE_COUNT%%, %%SIM_HOST_MAX_THREADS%%,\n"
+      " %%SIM_ETHERNET_CAPABILITIES%%\n\n"
       "+Token %%0 expands to the command file name.\n"
       "+Token %%n (n being a single digit) expands to the n'th argument\n"
       "+Token %%* expands to the whole set of arguments (%%1 ... %%9)\n\n"
@@ -7297,15 +7298,17 @@ if (1) {
         char *proc_level = getenv ("PROCESSOR_LEVEL");
         char *proc_rev = getenv ("PROCESSOR_REVISION");
         char *proc_arch3264 = getenv ("PROCESSOR_ARCHITEW6432");
-        char osversion[PATH_MAX+1] = "";
-        char cores[64] = "";
-        char tarversion[PATH_MAX+1] = "";
-        char curlversion[PATH_MAX+1] = "";
-        char wmicpath[PATH_MAX+1] = "";
-        char proc_name[CBUFSIZE] = "";
+        static char osversion[PATH_MAX+1] = "";
+        static char cores[64] = "";
+        static char tarversion[PATH_MAX+1] = "";
+        static char curlversion[PATH_MAX+1] = "";
+        static char wmicpath[PATH_MAX+1] = "";
+        static char powershellpath[PATH_MAX+1] = "";
+        static char proc_name[CBUFSIZE] = "";
         FILE *f;
 
-        if ((f = _popen ("ver", "r"))) {
+        if ((osversion[0] == '\0') &&
+            (f = _popen ("ver", "r"))) {
             do {
                 if (NULL == fgets (osversion, sizeof (osversion), f))
                     break;
@@ -7313,8 +7316,9 @@ if (1) {
                 } while (osversion[0] == '\0');
             _pclose (f);
             }
-        strlcpy (wmicpath, sim_get_tool_path ("wmic"), sizeof (wmicpath));
-        if (wmicpath[0]) {
+        if (wmicpath[0] == '\0')
+            strlcpy (wmicpath, sim_get_tool_path ("wmic"), sizeof (wmicpath));
+        if ((cores[0] == '\0') && (wmicpath[0] != '\0')) {
             if ((f = _popen ("WMIC CPU Get NumberOfCores", "r"))) {
                 do {
                     if (NULL == fgets (cores, sizeof (cores), f))
@@ -7325,15 +7329,23 @@ if (1) {
                 }
             }
         else {
-            if ((f = _popen ("PowerShell -C \"Get-CimInstance -ClassName Win32_Processor | Select-Object NumberOfCores\"", "r"))) {
+            if (powershellpath[0] == '\0')
+                strlcpy (powershellpath, sim_get_tool_path ("PowerShell"), sizeof (powershellpath));
+            if ((cores[0] == '\0') && (powershellpath[0] != '\0') &&
+                (f = _popen ("PowerShell -C \"Get-CimInstance -ClassName Win32_Processor | Select-Object NumberOfCores,Name\"", "r"))) {
                 memset (cores, 0, sizeof(cores));
+                memset (proc_name, 0, sizeof(proc_name));
                 do {
-                    if (NULL == fgets (cores, sizeof(cores)-1, f))
+                    if (NULL == fgets (proc_name, sizeof(proc_name)-1, f))
                         break;
-                    sim_trim_spc (cores);
+                    sim_trim_spc (proc_name);
+                    cptr = get_glyph_nc (proc_name, cores, 0);
+                    memmove (proc_name, cptr, 1 + strlen (cptr));
                     if ((0 == memcmp (cores, "NumberOfCores", 13)) || /* skip header lines */
-                        (0 == memcmp (cores, "-------------", 13)))
+                        (0 == memcmp (cores, "-------------", 13))) {
                         memset (cores, 0, sizeof (cores));
+                        memset (proc_name, 0, sizeof(proc_name));
+                        }
                     } while (cores[0] == '\0');
                 _pclose (f);
                 }
@@ -7344,7 +7356,7 @@ if (1) {
         fprintf (st, "\n        OS: %s", osversion);
         fprintf (st, "\n        Architecture: %s%s%s, %s%s%sLogical Processors: %s", arch, proc_arch3264 ? " on " : "", proc_arch3264 ? proc_arch3264  : "", (cores[0] == '\0') ? "" : "Cores: ", cores, (cores[0] == '\0') ? "" : ", ", procs);
         fprintf (st, "\n        Processor Id: %s, Level: %s, Revision: %s", proc_id ? proc_id : "", proc_level ? proc_level : "", proc_rev ? proc_rev : "");
-        if (wmicpath[0]) {
+        if ((proc_name[0] == '\0') && (wmicpath[0] != '\0')) {
             if ((f = _popen ("WMIC CPU GET NAME", "r"))) {
                 memset (proc_name, 0, sizeof(proc_name));
                 do {
@@ -7357,30 +7369,18 @@ if (1) {
                 _pclose (f);
                 }
             }
-        else {
-            if ((f = _popen ("PowerShell -C \"Get-CimInstance -ClassName Win32_Processor | Select-Object Name\"", "r"))) {
-                memset (proc_name, 0, sizeof(proc_name));
-                do {
-                    if (NULL == fgets (proc_name, sizeof(proc_name)-1, f))
-                        break;
-                    sim_trim_endspc (proc_name);
-                    if ((0 == memcmp (proc_name, "Name", 4)) || /* skip header lines */
-                        (0 == memcmp (proc_name, "----", 4)))
-                        memset (proc_name, 0, sizeof (proc_name));
-                    } while (proc_name[0] == '\0');
-                _pclose (f);
-                }
-            }
         if (proc_name[0] != '\0')
             fprintf (st, "\n        Processor Name: %s", proc_name);
         strlcpy (os_type, "Windows", sizeof (os_type));
-        strlcpy (tarversion, _get_tool_version ("tar"), sizeof (tarversion));
-        if (tarversion[0]) {
+        if (tarversion[0] == '\0')
+            strlcpy (tarversion, _get_tool_version ("tar"), sizeof (tarversion));
+        if (tarversion[0] != '\0') {
             fprintf (st, "\n        tar tool: %s", tarversion);
             setenv ("SIM_TAR_CMD_AVAILABLE", "TRUE", 1);
             }
-        strlcpy (curlversion, _get_tool_version ("curl"), sizeof (curlversion));
-        if (curlversion[0]) {
+        if (curlversion[0] == '\0')
+            strlcpy (curlversion, _get_tool_version ("curl"), sizeof (curlversion));
+        if (curlversion[0] != '\0') {
             fprintf (st, "\n        curl tool: %s", curlversion);
             setenv ("SIM_CURL_CMD_AVAILABLE", "TRUE", 1);
             }
@@ -15398,8 +15398,8 @@ if (_get_tool_version (cmd)[0]) {
     snprintf (gbuf, sizeof (gbuf), "%s %s", cmd, cptr);
     return spawn_cmd (0, gbuf);
     }
-else
-    return SCPE_NOFNC;
+sim_messagef (SCPE_NOFNC, "The %s command is not currently available on this system.\n", cmd);
+return sim_messagef (SCPE_NOFNC, "You may want to try installing the appropriate package for this system\n");
 }
 
 t_stat tar_cmd (int32 flag, CONST char *cptr)
@@ -15511,7 +15511,60 @@ size_t asnum = 0;
 char *const *hblock;
 const char *ep;
 t_bool excluded = FALSE;
+char *exptext = NULL;
 
+if (dptr != NULL) {
+    int i;
+    static const char *attach_inserts[] = {"%A", "%0A", "%1A", "%2A", "%3A", "%4A", "%5A", "%6A", "%7A", "%8A", "%9A", NULL};
+
+    for (i = 0; (attach_inserts[i] != NULL) && 
+                ((ep = strstr (htext, attach_inserts[i])) == NULL); i++) ;
+    if (ep != NULL) {
+        const char *insert_string = "";
+        size_t insert_size = 0;
+        size_t explen;
+        int addlevel = 0;
+        int epskip = 0;
+
+        ++epskip;                       /* skip % */
+        if (sim_isdigit (*(ep + 1))) {
+            addlevel = *(ep + 1) - '0';                 
+            ++epskip;                   /* skip digit */
+            }
+        ++epskip;                       /* skip A */
+
+        /* As each of the device types have hierarchical help available, the    */
+        /* insertion property here should be added.                             */
+        switch (DEV_TYPE(dptr)) {
+            case DEV_ETHER:
+                insert_string = eth_attach_scp_help_string (dptr);
+                insert_size = strlen (insert_string);
+                break;
+            }
+        explen = strlen (htext) + insert_size;  /* size includes \0 since we're skipping the %A */
+        exptext = malloc (explen);
+        memcpy (exptext, htext, ep - htext);
+        if (addlevel > 0) { /* Need to find and adjust level indications */
+            const char *ins = insert_string;
+            t_bool last_nl = TRUE;
+            char *op = exptext + (ep - htext);
+
+            while (*ins) {
+                if (last_nl && sim_isdigit (*ins))
+                    *op++ = addlevel + *ins;
+                else
+                    *op++ = *ins;
+                last_nl = (*ins == '\n');
+                ++ins;
+                }
+            *op = '\0';
+            }
+        else
+            strlcpy (exptext + (ep - htext), insert_string, explen - (ep - htext));
+        strlcat (exptext, ep + epskip, explen);
+        htext = exptext;
+        }
+    }
 /* variable arguments consumed table.
  * The scheme used allows arguments to be accessed in random
  * order, but for portability, all arguments must be char *.
@@ -15737,6 +15790,7 @@ for (hblock = astrings; (htext = *hblock) != NULL; hblock++) {
     vsnum = 0;
     } /* all strings */
 
+free (exptext);
 return topic;
 }
 
