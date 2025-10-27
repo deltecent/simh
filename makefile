@@ -2194,6 +2194,31 @@ S3 = ${S3D}/s3_cd.c ${S3D}/s3_cpu.c ${S3D}/s3_disk.c ${S3D}/s3_lp.c \
 S3_OPT = -I ${S3D}
 
 
+S100D = ${SIMHD}/S100
+S100 = ${S100D}/s100_sys.c \
+       	${S100D}/s100_bus.c \
+       	${S100D}/s100_bram.c \
+       	${S100D}/s100_fp.c \
+       	${S100D}/s100_simh.c \
+       	${S100D}/s100_ram.c \
+       	${S100D}/s100_rom.c \
+       	${S100D}/s100_z80.c \
+	${S100D}/mits_2sio.c \
+	${S100D}/mits_dsk.c \
+	${S100D}/sds_sbc200.c \
+	${S100D}/sds_vfii.c \
+	${S100D}/altairz80.c \
+        ${S100D}/AltairZ80/s100_hayes.c \
+        ${S100D}/AltairZ80/s100_icom.c \
+        ${S100D}/AltairZ80/s100_jadedd.c \
+	${S100D}/AltairZ80/s100_pmmi.c \
+	${S100D}/AltairZ80/s100_tarbell.c \
+	${S100D}/AltairZ80/s100_tuart.c \
+        ${S100D}/AltairZ80/s100_vdm1.c \
+       	${S100D}/AltairZ80/wd179x.c
+S100_OPT = -I ${S100D} -I ${S100D}/AltairZ80
+
+
 ALTAIRD = ${SIMHD}/ALTAIR
 ALTAIR = ${ALTAIRD}/altair_sio.c ${ALTAIRD}/altair_cpu.c ${ALTAIRD}/altair_dsk.c \
 	${ALTAIRD}/altair_sys.c
@@ -2842,6 +2867,12 @@ sel32 : $(BIN)sel32$(EXE)
 
 $(BIN)sel32$(EXE) : ${SEL32} ${SIM}
 	$(MAKEIT) OPTS="$(SEL32_OPT)"
+
+
+s100 : $(BIN)s100$(EXE)
+
+$(BIN)s100$(EXE) : ${S100} ${SIM}
+	$(MAKEIT) OPTS="$(S100_OPT)"
 
 
 altair : $(BIN)altair$(EXE)
