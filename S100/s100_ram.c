@@ -120,14 +120,14 @@ static t_stat ram_reset(DEVICE *dptr)
 
 /* memory examine */
 static t_stat ram_ex(t_value *vptr, t_addr addr, UNIT *uptr, int32 sw) {
-    *vptr = GetBYTE(addr & ADDRMASK) & 0xff;
+    *vptr = GetBYTE(addr & ADDRMASK) & DATAMASK;
 
     return SCPE_OK;
 }
 
 /* memory deposit */
 static t_stat ram_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw) {
-    PutBYTE(addr & ADDRMASK, val & 0xff);
+    PutBYTE(addr & ADDRMASK, val & DATAMASK);
  
     return SCPE_OK;
 }
@@ -146,7 +146,7 @@ static int32 ram_memio(const int32 addr, const int32 rw, const int32 data)
 static void PutBYTE(register uint32 Addr, const register uint32 Value)
 {
 //    sim_printf("PutBYTE: %04X %02X\n", Addr, Value);
-    M[Addr & ADDRMASK] = Value & 0xff;
+    M[Addr & ADDRMASK] = Value & DATAMASK;
 }
 
 static void PutWORD(register uint32 Addr, const register uint32 Value)
@@ -158,7 +158,7 @@ static void PutWORD(register uint32 Addr, const register uint32 Value)
 static uint32 GetBYTE(register uint32 Addr)
 {
 //    sim_printf("GetBYTE: %04X\n", Addr);
-    return M[Addr & ADDRMASK] & 0xff; /* RAM */
+    return M[Addr & ADDRMASK] & DATAMASK; /* RAM */
 }
 
 static t_stat ram_default_ena(UNIT *uptr, int32 value, CONST char *cptr, void *desc)

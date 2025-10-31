@@ -12,6 +12,7 @@ extern DEVICE z80_dev;
 extern DEVICE ram_dev;
 extern DEVICE bram_dev;
 extern DEVICE dsk_dev;
+extern DEVICE tarbell_dev;
 extern DEVICE rom_dev;
 extern DEVICE m2sio0_dev;
 extern DEVICE m2sio1_dev;

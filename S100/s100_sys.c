@@ -59,6 +59,7 @@ DEVICE *sim_devices[] = {
     &m2sio0_dev,
     &m2sio1_dev,
     &dsk_dev,
+    &tarbell_dev,
     &sbc200_dev,
     &vfii_dev,
     &wd179x_dev,
