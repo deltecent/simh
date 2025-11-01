@@ -56,12 +56,27 @@ DEVICE *sim_devices[] = {
     &ram_dev,
     &bram_dev,
     &rom_dev,
+    &dsk_dev,
     &m2sio0_dev,
     &m2sio1_dev,
-    &dsk_dev,
+    &tuart0_dev,
+    &tuart1_dev,
+    &tuart2_dev,
+    &cromfdc_dev,
+    &disk1a_dev,
+    &icom_dev,
+    &dj2d_dev,
     &tarbell_dev,
     &sbc200_dev,
     &vfii_dev,
+    &hayes_dev,
+    &pmmi_dev,
+    &jair_dev,
+    &jairs0_dev,
+    &jairs1_dev,
+    &jairp_dev,
+    &vdm1_dev,
+    &i8272_dev,
     &wd179x_dev,
     NULL
 };
@@ -191,3 +206,16 @@ t_stat parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 
     return SCPE_OK;
 }
 
+char *sys_strupr(const char *str)
+{
+    static char s[128];
+    int i;
+
+    for (i = 0; i < sizeof(s) && str[i] != '\0'; i++) {
+        s[i] = str[i];
+    }
+
+    s[i] = '\0';
+
+    return s;
+}

@@ -1,5 +1,17 @@
 #include "altairz80_defs.h"
 
+static  uint32 clockFrequency   = 0;
+
+uint32 getClockFrequency(void)
+{
+   return clockFrequency;
+}
+
+void setClockFrequency(const uint32 Value)
+{
+    clockFrequency = Value;
+}
+
 t_stat set_membase(UNIT *uptr, int32 val, CONST char *cptr, void *desc)
 {
     DEVICE *dptr;
@@ -171,6 +183,10 @@ void cpu_raise_interrupt(uint32 irq) {
     s100_bus_int(irq, 0x00);
 }
 
+void raise_ss1_interrupt(uint8 intnum) {
+    s100_bus_int(intnum, 0x00);
+}
+
 const char * handlerNameForPort(const int32 port)
 {
     IDEV idev;
@@ -178,5 +194,13 @@ const char * handlerNameForPort(const int32 port)
     s100_bus_get_idev(port, &idev);
 
     return idev.name;
+}
+
+void PutByteDMA(const uint32 Addr, const uint32 Value) {
+    s100_bus_memw((t_addr) Addr, Value);
+}
+
+uint8 GetByteDMA(const uint32 Addr) {
+    return s100_bus_memr((t_addr) Addr);
 }
 

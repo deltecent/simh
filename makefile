@@ -209,6 +209,10 @@ ifneq (3,${SIM_MAJOR})
   ifneq (,$(or $(findstring pdp6,${MAKECMDGOALS}),$(findstring pdp10-ka,${MAKECMDGOALS}),$(findstring pdp10-ki,${MAKECMDGOALS})))
     VIDEO_USEFUL = true
   endif
+  # building the S100 could use video support
+  ifneq (,$(findstring s100,${MAKECMDGOALS}))
+    VIDEO_USEFUL = true
+  endif
   # building the AltairZ80 could use video support
   ifneq (,$(findstring altairz80,${MAKECMDGOALS}))
     VIDEO_USEFUL = true
@@ -2208,15 +2212,20 @@ S100 = ${S100D}/s100_sys.c \
 	${S100D}/sds_sbc200.c \
 	${S100D}/sds_vfii.c \
 	${S100D}/altairz80.c \
+        ${S100D}/AltairZ80/s100_64fdc.c \
+        ${S100D}/AltairZ80/s100_disk1a.c \
+        ${S100D}/AltairZ80/s100_dj2d.c \
         ${S100D}/AltairZ80/s100_hayes.c \
         ${S100D}/AltairZ80/s100_icom.c \
         ${S100D}/AltairZ80/s100_jadedd.c \
+        ${S100D}/AltairZ80/s100_jair.c \
 	${S100D}/AltairZ80/s100_pmmi.c \
 	${S100D}/AltairZ80/s100_tarbell.c \
 	${S100D}/AltairZ80/s100_tuart.c \
         ${S100D}/AltairZ80/s100_vdm1.c \
+        ${S100D}/AltairZ80/i8272.c \
        	${S100D}/AltairZ80/wd179x.c
-S100_OPT = -I ${S100D} -I ${S100D}/AltairZ80
+S100_OPT = -I ${S100D} -I ${S100D}/AltairZ80 -DUSE_SIM_VIDEO ${VIDEO_CCDEFS} $(VIDEO_LDFLAGS)
 
 
 ALTAIRD = ${SIMHD}/ALTAIR
@@ -2551,7 +2560,7 @@ ALL = pdp1 pdp4 pdp7 pdp8 pdp9 pdp15 pdp11 pdp10 \
 	swtp6800mp-a swtp6800mp-a2 tx-0 ssem b5500 intel-mds \
 	scelbi 3b2 3b2-700 i701 i704 i7010 i7070 i7080 i7090 \
 	sigma uc15 pdp10-ka pdp10-ki pdp10-kl pdp10-ks pdp6 i650 \
-	imlac linc tt2500 sel32
+	imlac linc tt2500 sel32 s100
 
 all : ${ALL}
 

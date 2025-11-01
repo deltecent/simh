@@ -168,7 +168,8 @@ static t_stat bus_dep(t_value val, t_addr addr, UNIT *uptr, int32 sw)
 
 static t_stat bus_show(FILE *st, UNIT *uptr, int32 val, CONST void *desc)
 {
-    int i;
+    const char *last = NULL;
+    int i, spage, epage;
 
     fprintf(st, "VERBOSE\n");
 
@@ -176,16 +177,27 @@ static t_stat bus_show(FILE *st, UNIT *uptr, int32 val, CONST void *desc)
     fprintf(st, "\nMEMORY:\n");
 
     for (i = 0; i < MAXPAGE; i++) {
-        fprintf(st, "%-12.12s: %04X\n", mdev_table[i].routine != &nulldev ? mdev_table[i].name : "", i << LOG2PAGESIZE);
+        if (mdev_table[i].name != last) {
+            if (last != NULL) {
+                fprintf(st, "%04X-%04X: %s\n", spage << LOG2PAGESIZE, (epage << LOG2PAGESIZE) | 0xff, mdev_table[epage].routine != &nulldev ? sys_strupr(last) : "");
+            }
+
+	    last = mdev_table[i].name;
+            spage = i;
+        }
+
+        epage = i;
     }
 
-    fprintf(st, "\nDefault Memory Device: %s\n", mdev_dflt.name);
+    fprintf(st, "%04X-%04X: %s\n", spage << LOG2PAGESIZE, (epage << LOG2PAGESIZE) | 0xff, mdev_table[epage].routine != &nulldev ? sys_strupr(last) : "");
+
+    fprintf(st, "\nDefault Memory Device: %s\n", sys_strupr(mdev_dflt.name));
 
     /* show which ports are assigned */
     fprintf(st, "\nIO:\n");
     for (i = 0; i < MAXPAGE; i++) {
         if (idev_table[i].routine != &nulldev) {
-            fprintf(st, "%-12.12s: %02X\n", idev_table[i].name, i);
+            fprintf(st, "%02X: %s\n", i, sys_strupr(idev_table[i].name));
         }
     }
 
