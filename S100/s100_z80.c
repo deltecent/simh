@@ -45,6 +45,8 @@
 
 static ChipType chiptype = CHIP_TYPE_Z80;
 
+static int32 z80_poc = TRUE; /* Power On Clear */
+
 #define INST_MAX_BYTES  4                       /* instruction max bytes */
 
 #define IFF1    1                               /* Interrupt flip-flop 1 */
@@ -137,11 +139,9 @@ static t_stat z80_show              (FILE *st, UNIT *uptr, int32 val, CONST void
 static t_stat chip_show             (FILE *st, UNIT *uptr, int32 val, CONST void *desc);
 static t_stat z80_reset(DEVICE *dptr);
 static t_bool z80_is_pc_a_subroutine_call (t_addr **ret_addrs);
-static t_stat z80_hex_load(FILE *fileref, CONST char *cptr, CONST char *fnam, int flag);
-static t_stat sim_instr_mmu(void);
+static t_value z80_pc_value(void);
 static const char* z80_description(DEVICE *dptr);
-void altairz80_init(void);
-static int32 DAsm(char *S, const uint32 *val, const int32 addr);
+static int32 z80_dasm(char *S, const uint32 *val, const int32 addr);
 
 static int32 parse_X80(const char *cptr, const int32 addr, uint32 *val, const char *const Mnemonics[]);
 static t_stat z80_parse_sym(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 sw);
@@ -205,46 +205,29 @@ static insthist_t *hst = NULL;                  /* instruction history      */
 
 static REG z80_reg[] = {
     // 8080 and Z80 registers
-    { HRDATAD (AF,      AF_S,               16, "8080 / Z80 Accumulator Flag register")
-    }, /*  0 */
-    { HRDATAD (BC,      BC_S,               16, "8080 / Z80 BC register")
-    }, /*  1 */
-    { HRDATAD (DE,      DE_S,               16, "8080 / Z80 DE register")
-    }, /*  2 */
-    { HRDATAD (HL,      HL_S,               16, "8080 / Z80 HL register")
-    }, /*  3 */
-    { HRDATAD (PC,      PC_S,               16, "8080 / Z80 Program Counter register")
-    }, /*  4 8080 / Z80                 */
-    { HRDATAD (SP,      SP_S,               16, "8080 / Z80 Stack Pointer register")
-    }, /*  5 */
+    { HRDATAD (AF,      AF_S,               16, "8080 / Z80 Accumulator Flag register") },
+    { HRDATAD (BC,      BC_S,               16, "8080 / Z80 BC register") },
+    { HRDATAD (DE,      DE_S,               16, "8080 / Z80 DE register") },
+    { HRDATAD (HL,      HL_S,               16, "8080 / Z80 HL register") },
+    { HRDATAD (PC,      PC_S,               16, "8080 / Z80 Program Counter register") },
+    { HRDATAD (SP,      SP_S,               16, "8080 / Z80 Stack Pointer register") },
 
     // Z80 registers
-    { HRDATAD (IX,      IX_S,               16, "Z80 IX register")
-    }, /*  6 */
-    { HRDATAD (IY,      IY_S,               16, "Z80 IY register")
-    }, /*  7 */
-    { HRDATAD (AF1,     AF1_S,              16, "Z80 Alternate Accumulator Flag register")
-    }, /*  8 */
-    { HRDATAD (BC1,     BC1_S,              16, "Z80 Alternate BC register")
-    }, /*  9 */
-    { HRDATAD (DE1,     DE1_S,              16, "Z80 Alternate DE register")
-    }, /* 10 */
-    { HRDATAD (HL1,     HL1_S,              16, "Z80 Alternate HL register")
-    }, /* 11 */
-    { GRDATAD (IFF,     IFF_S, 2, 2, 0,         "Z80 Interrupt Flip Flop register")
-    }, /* 12 */
-    { HRDATAD (IM,      IM_S,               2,  "Z80 Interrupt Mode register")
-    }, /* 13 */
-    { HRDATAD (IR,      IR_S,               16, "Z80 Interrupt (upper) / Refresh (lower) register")
-    }, /* 14 */
+    { HRDATAD (IX,      IX_S,               16, "Z80 IX register") },
+    { HRDATAD (IY,      IY_S,               16, "Z80 IY register") },
+    { HRDATAD (AF1,     AF1_S,              16, "Z80 Alternate Accumulator Flag register") },
+    { HRDATAD (BC1,     BC1_S,              16, "Z80 Alternate BC register") },
+    { HRDATAD (DE1,     DE1_S,              16, "Z80 Alternate DE register") },
+    { HRDATAD (HL1,     HL1_S,              16, "Z80 Alternate HL register") },
+    { GRDATAD (IFF,     IFF_S, 2, 2, 0,         "Z80 Interrupt Flip Flop register") },
+    { HRDATAD (IM,      IM_S,               2,  "Z80 Interrupt Mode register") },
+    { HRDATAD (IR,      IR_S,               16, "Z80 Interrupt (upper) / Refresh (lower) register") },
 
     // Pseudo registers
-    { FLDATAD (OPSTOP,  z80_unit.flags,     UNIT_Z80_V_OPSTOP, "Stop on invalid operation pseudo register"),
-        REG_HRO         }, /* 70 */
-    { DRDATAD (TSTATES, executedTStates,    32, "Executed t-states for 8080 / Z80 pseudo register"),
-        REG_RO              }, /* 77 */
-    { HRDATAD (WRU,     sim_int_char,       8, "Interrupt character pseudo register"),
-    }, /* 82 */
+    { FLDATAD (POC,     z80_poc,       0x01,         "Power on Clear flag"), },
+    { FLDATAD (OPSTOP,  z80_unit.flags,     UNIT_Z80_V_OPSTOP, "Stop on invalid operation pseudo register"), REG_HRO },
+    { DRDATAD (TSTATES, executedTStates,    32, "Executed t-states for 8080 / Z80 pseudo register"), REG_RO },
+    { HRDATAD (WRU,     sim_int_char,       8, "Interrupt character pseudo register"), },
     { NULL }
 };
 
@@ -1433,13 +1416,8 @@ static void altairz80_print_tables(void) {
         ((acu + (x)) > 0xff ? (FLAG_C | FLAG_H) : 0) |  /* CF, HF   */  \
         parityTable[((acu + (x)) & 7) ^ HIGH_REGISTER(BC)] /* PF    */
 
-t_stat z80_instr (void) {
-    t_stat result;
-
-    return sim_instr_mmu();
-}
-
-static t_stat sim_instr_mmu (void) {
+t_stat z80_instr(void)
+{
     int32 reason = SCPE_OK;
     uint32 i;
     register uint32 specialProcessing;
@@ -5706,19 +5684,21 @@ static const char *z80_clock_precalibrate_commands[] = {
 
 /* reset routine */
 
-static t_stat z80_reset(DEVICE *dptr) {
+static t_stat z80_reset(DEVICE *dptr)
+{
     int32 i;
 
     if (!(dptr->flags & DEV_DIS)) {
         sys_set_cpu_instr(&z80_instr);
         sys_set_cpu_pc(&z80_reg[CPU_INDEX_8080]);
+	sys_set_cpu_pc_value(&z80_pc_value);
         sys_set_cpu_parse_sym(&z80_parse_sym);
-        sys_set_cpu_dasm(&DAsm);
-    }
+        sys_set_cpu_dasm(&z80_dasm);
+        sys_set_cpu_is_subroutine_call(&z80_is_pc_a_subroutine_call);
 
-    if (sim_vm_is_subroutine_call == NULL) { /* First time reset? */
-        sim_vm_is_subroutine_call = z80_is_pc_a_subroutine_call;
-        altairz80_init();
+        if (z80_poc) { /* First time reset? */
+	    z80_poc = FALSE;
+        }
     }
 
     AF_S = AF1_S = 0;
@@ -5957,14 +5937,8 @@ t_stat z80_show_hist (FILE *st, UNIT *uptr, int32 val, CONST void *desc)
     return SCPE_OK;
 }
 
-t_value altairz80_pc_value (void) {
-    return (t_value)PCX;
-}
-
-/* AltairZ80 Simulator initialization */
-void altairz80_init(void) {
-    sim_vm_pc_value = &altairz80_pc_value;
-/* altairz80_print_tables(); */
+static t_value z80_pc_value (void) {
+    return (t_value) PCX;
 }
 
 t_stat cpu_cmd_reg(int32 flag, CONST char *cptr)
@@ -6267,7 +6241,7 @@ static void printHex4(char* string, const uint32 value) {
 
 */
 
-static int32 DAsm(char *S, const uint32 *val, const int32 addr) {
+static int32 z80_dasm(char *S, const uint32 *val, const int32 addr) {
     char R[128], H[10], C = '\0', *P;
     const char *T, *T1;
     uint8 J = 0, Offset = 0;

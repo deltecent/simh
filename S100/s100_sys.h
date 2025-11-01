@@ -40,8 +40,10 @@ extern char instructionMessage[256];
 
 extern void sys_set_cpu_instr(t_stat (*routine)(void));
 extern void sys_set_cpu_pc(REG *reg);
+extern void sys_set_cpu_pc_value(t_value (*routine)(void));
 extern void sys_set_cpu_parse_sym(t_stat (*routine)(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 sw));
 extern void sys_set_cpu_dasm(int32 (*routine)(char *S, const uint32 *val, const int32 addr));
+extern void sys_set_cpu_is_subroutine_call(t_bool (*routine)(t_addr **ret_addrs));
 extern char *sys_strupr(const char *str);
 
 #endif

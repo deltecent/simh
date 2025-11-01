@@ -93,8 +93,6 @@ const char *sim_stop_messages[SCPE_BASE] = {
     "HALT instruction"
 };
 
-extern t_stat cpu_instr();
-
 static t_stat (*sys_cpu_instr)(void) = NULL;
 static t_stat (*sys_cpu_parse_sym)(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 sw) = NULL;
 static int32  (*sys_cpu_dasm)(char *S, const uint32 *val, const int32 addr) = NULL;
@@ -120,6 +118,11 @@ void sys_set_cpu_pc(REG *reg)
     sim_PC = reg;
 }
 
+void sys_set_cpu_pc_value(t_value (*routine)(void))
+{
+    sim_vm_pc_value = routine;
+}
+
 void sys_set_cpu_parse_sym(t_stat (*routine)(CONST char *cptr, t_addr addr, UNIT *uptr, t_value *val, int32 sw))
 {
     sys_cpu_parse_sym = routine;
@@ -128,6 +131,10 @@ void sys_set_cpu_parse_sym(t_stat (*routine)(CONST char *cptr, t_addr addr, UNIT
 void sys_set_cpu_dasm(int32 (*routine)(char *S, const uint32 *val, const int32 addr))
 {
     sys_cpu_dasm = routine;
+}
+
+void sys_set_cpu_is_subroutine_call(t_bool (*routine)(t_addr **ret_addrs))
+{
 }
 
 /*  This is the binary loader. The input file is considered to be a string of
