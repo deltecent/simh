@@ -56,6 +56,7 @@ typedef struct {
 } CPU;
 
 extern void cpu_set_chiptype(ChipType type);
+extern ChipType cpu_get_chiptype(void);
 extern char * cpu_get_chipname(ChipType type);
 
 #endif
