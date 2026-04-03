@@ -55,7 +55,7 @@ jobs:
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
-        shell: msys2 {0}
+        shell: cmd
         run: make altair8800
 
       - name: Upload binary
