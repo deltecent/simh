@@ -99,8 +99,7 @@
 #include "mits_2sio.h"
 
 #define M2SIO_NAME  "MITS 88-2SIO SERIAL ADAPTER"
-#define M2SIO0_SNAME "M2SIO0"
-#define M2SIO1_SNAME "M2SIO1"
+#define M2SIO_SNAME  "M2SIO"
 
 #define M2SIO_PORTS        2
 
@@ -143,27 +142,24 @@
 
 static const char* m2sio_description(DEVICE *dptr);
 static t_stat m2sio_svc(UNIT *uptr);
-static t_stat m2sio_reset(DEVICE *dptr, int32 (*routine)(const int32, const int32, const int32));
-static t_stat m2sio0_reset(DEVICE *dptr);
-static t_stat m2sio1_reset(DEVICE *dptr);
+static t_stat m2sio_reset(DEVICE *dptr);
 static t_stat m2sio_attach(UNIT *uptr, const char *cptr);
 static t_stat m2sio_detach(UNIT *uptr);
 static t_stat m2sio_set_console(UNIT *uptr, int32 value, const char *cptr, void *desc);
 static t_stat m2sio_set_baud(UNIT *uptr, int32 value, const char *cptr, void *desc);
 static t_stat m2sio_show_baud(FILE *st, UNIT *uptr, int32 value, const void *desc);
 static t_stat m2sio_config_line(UNIT *uptr);
-static t_stat m2sio_config_rts(DEVICE *dptr, char rts);
+static t_stat m2sio_config_rts(UNIT *uptr, char rts);
 static int32 m2sio0_io(int32 addr, int32 io, int32 data);
 static int32 m2sio1_io(int32 addr, int32 io, int32 data);
-static int32 m2sio_io(DEVICE *dptr, int32 addr, int32 io, int32 data);
-static int32 m2sio_stat(DEVICE *dptr, int32 io, int32 data);
-static int32 m2sio_data(DEVICE *dptr, int32 io, int32 data);
+static int32 m2sio_io(UNIT *uptr, int32 addr, int32 io, int32 data);
+static int32 m2sio_stat(UNIT *uptr, int32 io, int32 data);
+static int32 m2sio_data(UNIT *uptr, int32 io, int32 data);
 static void m2sio_int(UNIT *uptr);
 static int32 m2sio_map_kbdchar(UNIT *uptr, int32 ch);
 static t_stat m2sio_show_help(FILE *st, DEVICE *dptr, UNIT *uptr, int32 flag, const char *cptr);
 
-static M2SIO_REG m2sio0_reg;
-static M2SIO_REG m2sio1_reg;
+static M2SIO_REG m2sio_reg[2];
 
 /* Debug Flags */
 #define STATUS_MSG        (1 << 0)
@@ -244,68 +240,64 @@ static MTAB m2sio_mod[] = {
     { 0 }
 };
 
-static RES m2sio0_res = { M2SIO0_IOBASE, M2SIO0_IOSIZE, 0, 0, &m2sio0_tmxr };
-static RES m2sio1_res = { M2SIO1_IOBASE, M2SIO1_IOSIZE, 0, 0, &m2sio1_tmxr };
-
-static UNIT unit0[] = {
-        { UDATA (&m2sio_svc, UNIT_ATTABLE | UNIT_M2SIO_MAP | UNIT_M2SIO_CONSOLE | UNIT_M2SIO_DCD | UNIT_M2SIO_CTS , 0), M2SIO_WAIT },
+static RES m2sio_res[] = {
+    { M2SIO0_IOBASE, M2SIO0_IOSIZE, 0, 0, &m2sio0_tmxr },
+    { M2SIO1_IOBASE, M2SIO1_IOSIZE, 0, 0, &m2sio1_tmxr }
 };
 
-static UNIT unit1[] = {
+static UNIT m2sio_unit[] = {
+        { UDATA (&m2sio_svc, UNIT_ATTABLE | UNIT_M2SIO_MAP | UNIT_M2SIO_CONSOLE | UNIT_M2SIO_DCD | UNIT_M2SIO_CTS , 0), M2SIO_WAIT },
         { UDATA (&m2sio_svc, UNIT_ATTABLE | UNIT_M2SIO_DCD | UNIT_M2SIO_CTS, 0), M2SIO_WAIT },
 };
 
-static REG reg0[] = {
-    { HRDATAD (M2STA0, m2sio0_reg.stb, 8, "2SIO port 0 status register"), },
-    { HRDATAD (M2CTL0, m2sio0_reg.ctb, 8, "2SIO port 0 control register"), },
-    { HRDATAD (M2RXD0, m2sio0_reg.rxb, 8, "2SIO port 0 rx data buffer"), },
-    { HRDATAD (M2TXD0, m2sio0_reg.txb, 8, "2SIO port 0 tx data buffer"), },
-    { FLDATAD (M2TXP0, m2sio0_reg.txp, 0, "2SIO port 0 tx data pending"), },
-    { FLDATAD (M2CON0, m2sio0_reg.conn, 0, "2SIO port 0 connection status"), },
-    { FLDATAD (M2RIE0, m2sio0_reg.rie, 0, "2SIO port 0 receive interrupt enable"), },
-    { FLDATAD (M2TIE0, m2sio0_reg.tie, 0, "2SIO port 0 transmit interrupt enable"), },
-    { FLDATAD (M2RTS0, m2sio0_reg.rts, 0, "2SIO port 0 RTS status (active low)"), },
-    { FLDATAD (M2RDRF0, m2sio0_reg.stb, 0, "2SIO port 0 RDRF status"), },
-    { FLDATAD (M2TDRE0, m2sio0_reg.stb, 1, "2SIO port 0 TDRE status"), },
-    { FLDATAD (M2DCD0, m2sio0_reg.stb, 2, "2SIO port 0 DCD status (active low)"), },
-    { FLDATAD (M2CTS0, m2sio0_reg.stb, 3, "2SIO port 0 CTS status (active low)"), },
-    { FLDATAD (M2OVRN0, m2sio0_reg.stb, 4, "2SIO port 0 OVRN status"), },
-    { FLDATAD (DCDL0, m2sio0_reg.dcdl, 0, "2SIO port 0 DCD latch"), },
-    { DRDATAD (M2WAIT0, unit0[0].wait, 32, "2SIO port 0 wait cycles"), },
-    { FLDATAD (M2INTEN0, m2sio0_reg.intenable, 1, "2SIO port 0 Global vectored interrupt enable"), },
-    { DRDATAD (M2VEC0, m2sio0_reg.intvector, 8, "2SIO port 0 interrupt vector"), },
-    { HRDATAD (M2DBVAL0, m2sio0_reg.databus, 8, "2SIO port 0 data bus value"), },
-    { NULL }
-};
-static REG reg1[] = {
-    { HRDATAD (M2STA1, m2sio1_reg.stb, 8, "2SIO port 1 status buffer"), },
-    { HRDATAD (M2CTL1, m2sio1_reg.ctb, 8, "2SIO port 1 control register"), },
-    { HRDATAD (M2RXD1, m2sio1_reg.rxb, 8, "2SIO port 1 rx data buffer"), },
-    { HRDATAD (M2TXD1, m2sio1_reg.txb, 8, "2SIO port 1 tx data buffer"), },
-    { FLDATAD (M2TXP1, m2sio1_reg.txp, 0, "2SIO port 1 tx data pending"), },
-    { FLDATAD (M2CON1, m2sio1_reg.conn, 0, "2SIO port 1 connection status"), },
-    { FLDATAD (M2RIE1, m2sio1_reg.rie, 0, "2SIO port 1 receive interrupt enable"), },
-    { FLDATAD (M2TIE1, m2sio1_reg.tie, 0, "2SIO port 1 transmit interrupt enable"), },
-    { FLDATAD (M2RTS1, m2sio1_reg.rts, 0, "2SIO port 1 RTS status (active low)"), },
-    { FLDATAD (M2RDRF1, m2sio1_reg.stb, 0, "2SIO port 1 RDRF status"), },
-    { FLDATAD (M2TDRE1, m2sio1_reg.stb, 1, "2SIO port 1 TDRE status"), },
-    { FLDATAD (M2DCD1, m2sio1_reg.stb, 2, "2SIO port 1 DCD status (active low)"), },
-    { FLDATAD (M2CTS1, m2sio1_reg.stb, 3, "2SIO port 1 CTS status (active low)"), },
-    { FLDATAD (M2OVRN1, m2sio1_reg.stb, 4, "2SIO port 1 OVRN status"), },
-    { FLDATAD (DCDL1, m2sio1_reg.dcdl, 0, "2SIO port 1 DCD latch"), },
-    { DRDATAD (M2WAIT1, unit1[0].wait, 32, "2SIO port 1 wait cycles"), },
-    { FLDATAD (M2INTEN1, m2sio1_reg.intenable, 1, "2SIO port 1 Global vectored interrupt enable"), },
-    { DRDATAD (M2VEC1, m2sio1_reg.intvector, 8, "2SIO port 1 interrupt vector"), },
-    { HRDATAD (M2DBVAL1, m2sio1_reg.databus, 8, "2SIO port 1 data bus value"), },
+static REG m2sio_reg_table[] = {
+    { HRDATAD (M2STA0, m2sio_reg[0].stb, 8, "2SIO port 0 status register"), },
+    { HRDATAD (M2CTL0, m2sio_reg[0].ctb, 8, "2SIO port 0 control register"), },
+    { HRDATAD (M2RXD0, m2sio_reg[0].rxb, 8, "2SIO port 0 rx data buffer"), },
+    { HRDATAD (M2TXD0, m2sio_reg[0].txb, 8, "2SIO port 0 tx data buffer"), },
+    { FLDATAD (M2TXP0, m2sio_reg[0].txp, 0, "2SIO port 0 tx data pending"), },
+    { FLDATAD (M2CON0, m2sio_reg[0].conn, 0, "2SIO port 0 connection status"), },
+    { FLDATAD (M2RIE0, m2sio_reg[0].rie, 0, "2SIO port 0 receive interrupt enable"), },
+    { FLDATAD (M2TIE0, m2sio_reg[0].tie, 0, "2SIO port 0 transmit interrupt enable"), },
+    { FLDATAD (M2RTS0, m2sio_reg[0].rts, 0, "2SIO port 0 RTS status (active low)"), },
+    { FLDATAD (M2RDRF0, m2sio_reg[0].stb, 0, "2SIO port 0 RDRF status"), },
+    { FLDATAD (M2TDRE0, m2sio_reg[0].stb, 1, "2SIO port 0 TDRE status"), },
+    { FLDATAD (M2DCD0, m2sio_reg[0].stb, 2, "2SIO port 0 DCD status (active low)"), },
+    { FLDATAD (M2CTS0, m2sio_reg[0].stb, 3, "2SIO port 0 CTS status (active low)"), },
+    { FLDATAD (M2OVRN0, m2sio_reg[0].stb, 4, "2SIO port 0 OVRN status"), },
+    { FLDATAD (DCDL0, m2sio_reg[0].dcdl, 0, "2SIO port 0 DCD latch"), },
+    { DRDATAD (M2WAIT0, m2sio_unit[0].wait, 32, "2SIO port 0 wait cycles"), },
+    { FLDATAD (M2INTEN0, m2sio_reg[0].intenable, 1, "2SIO port 0 Global vectored interrupt enable"), },
+    { DRDATAD (M2VEC0, m2sio_reg[0].intvector, 8, "2SIO port 0 interrupt vector"), },
+    { HRDATAD (M2DBVAL0, m2sio_reg[0].databus, 8, "2SIO port 0 data bus value"), },
+    { HRDATAD (M2STA1, m2sio_reg[1].stb, 8, "2SIO port 1 status buffer"), },
+    { HRDATAD (M2CTL1, m2sio_reg[1].ctb, 8, "2SIO port 1 control register"), },
+    { HRDATAD (M2RXD1, m2sio_reg[1].rxb, 8, "2SIO port 1 rx data buffer"), },
+    { HRDATAD (M2TXD1, m2sio_reg[1].txb, 8, "2SIO port 1 tx data buffer"), },
+    { FLDATAD (M2TXP1, m2sio_reg[1].txp, 0, "2SIO port 1 tx data pending"), },
+    { FLDATAD (M2CON1, m2sio_reg[1].conn, 0, "2SIO port 1 connection status"), },
+    { FLDATAD (M2RIE1, m2sio_reg[1].rie, 0, "2SIO port 1 receive interrupt enable"), },
+    { FLDATAD (M2TIE1, m2sio_reg[1].tie, 0, "2SIO port 1 transmit interrupt enable"), },
+    { FLDATAD (M2RTS1, m2sio_reg[1].rts, 0, "2SIO port 1 RTS status (active low)"), },
+    { FLDATAD (M2RDRF1, m2sio_reg[1].stb, 0, "2SIO port 1 RDRF status"), },
+    { FLDATAD (M2TDRE1, m2sio_reg[1].stb, 1, "2SIO port 1 TDRE status"), },
+    { FLDATAD (M2DCD1, m2sio_reg[1].stb, 2, "2SIO port 1 DCD status (active low)"), },
+    { FLDATAD (M2CTS1, m2sio_reg[1].stb, 3, "2SIO port 1 CTS status (active low)"), },
+    { FLDATAD (M2OVRN1, m2sio_reg[1].stb, 4, "2SIO port 1 OVRN status"), },
+    { FLDATAD (DCDL1, m2sio_reg[1].dcdl, 0, "2SIO port 1 DCD latch"), },
+    { DRDATAD (M2WAIT1, m2sio_unit[1].wait, 32, "2SIO port 1 wait cycles"), },
+    { FLDATAD (M2INTEN1, m2sio_reg[1].intenable, 1, "2SIO port 1 Global vectored interrupt enable"), },
+    { DRDATAD (M2VEC1, m2sio_reg[1].intvector, 8, "2SIO port 1 interrupt vector"), },
+    { HRDATAD (M2DBVAL1, m2sio_reg[1].databus, 8, "2SIO port 1 data bus value"), },
     { NULL }
 };
 
-DEVICE m2sio0_dev = {
-    M2SIO0_SNAME,       /* name */
-    unit0,        /* unit */
-    reg0,         /* registers */
+DEVICE m2sio_dev = {
+    M2SIO_SNAME,        /* name */
+    m2sio_unit,         /* unit */
+    m2sio_reg_table,    /* registers */
     m2sio_mod,          /* modifiers */
-    1,                  /* # units */
+    2,                  /* # units */
     ADDRRADIX,          /* address radix */
     ADDRWIDTH,          /* address width */
     1,                  /* address increment */
@@ -313,40 +305,11 @@ DEVICE m2sio0_dev = {
     DATAWIDTH,          /* data width */
     NULL,               /* examine routine */
     NULL,               /* deposit routine */
-    &m2sio0_reset,      /* reset routine */
+    &m2sio_reset,       /* reset routine */
     NULL,               /* boot routine */
     &m2sio_attach,      /* attach routine */
     &m2sio_detach,      /* detach routine */
-    &m2sio0_res,        /* context */
-    (DEV_DISABLE | DEV_DEBUG | DEV_MUX),  /* flags */
-    0,                  /* debug control */
-    m2sio_dt,           /* debug flags */
-    NULL,               /* mem size routine */
-    NULL,               /* logical name */
-    &m2sio_show_help,   /* help */
-    NULL,               /* attach help */
-    NULL,               /* context for help */
-    &m2sio_description  /* description */
-};
-
-DEVICE m2sio1_dev = {
-    M2SIO1_SNAME,       /* name */
-    unit1,        /* unit */
-    reg1,         /* registers */
-    m2sio_mod,          /* modifiers */
-    1,                  /* # units */
-    10,                 /* address radix */
-    31,                 /* address width */
-    1,                  /* address increment */
-    8,                  /* data radix */
-    8,                  /* data width */
-    NULL,               /* examine routine */
-    NULL,               /* deposit routine */
-    &m2sio1_reset,      /* reset routine */
-    NULL,               /* boot routine */
-    &m2sio_attach,      /* attach routine */
-    &m2sio_detach,      /* detach routine */
-    &m2sio1_res,        /* context */
+    &m2sio_res[0],      /* context (first RES; used by set_iobase for port 0) */
     (DEV_DISABLE | DEV_DEBUG | DEV_MUX),  /* flags */
     0,                  /* debug control */
     m2sio_dt,           /* debug flags */
@@ -363,66 +326,60 @@ static const char* m2sio_description(DEVICE *dptr)
     return M2SIO_NAME;
 }
 
-static t_stat m2sio0_reset(DEVICE *dptr)
+static t_stat m2sio_reset(DEVICE *dptr)
 {
-    dptr->units->up8 = &m2sio0_reg;
-
-    return(m2sio_reset(dptr, &m2sio0_io));
-}
-
-static t_stat m2sio1_reset(DEVICE *dptr)
-{
-    dptr->units->up8 = &m2sio1_reg;
-
-    return(m2sio_reset(dptr, &m2sio1_io));
-}
-
-static t_stat m2sio_reset(DEVICE *dptr, int32 (*routine)(const int32, const int32, const int32))
-{
+    int32 i;
+    UNIT *uptr;
     RES *res;
     M2SIO_REG *reg;
+    int32 (*io_routines[2])(const int32, const int32, const int32) = { m2sio0_io, m2sio1_io };
 
-    if ((res = (RES *) dptr->ctxt) == NULL) {
-        return SCPE_IERR;
+    for (i = 0; i < (int32)dptr->numunits; i++) {
+        uptr = &dptr->units[i];
+        res  = &m2sio_res[i];
+        reg  = &m2sio_reg[i];
+
+        uptr->up7 = res;
+        uptr->up8 = reg;
+
+        /* Connect/Disconnect I/O Ports at base address */
+        if (dptr->flags & DEV_DIS) {
+            s100_bus_remio(res->io_base, res->io_size, io_routines[i]);
+            s100_bus_noconsole(uptr);
+            continue;
+        }
+
+        /* Device is enabled */
+        s100_bus_addio(res->io_base, res->io_size, io_routines[i], dptr->name);
+
+        /* Set as CONSOLE unit  */
+        if (uptr->flags & UNIT_M2SIO_CONSOLE) {
+            s100_bus_console(uptr);
+        }
+
+        /* Set DEVICE for this UNIT */
+        uptr->dptr = dptr;
+        uptr->wait = M2SIO_WAIT;
+
+        /* Enable TMXR modem control passthrough */
+        tmxr_set_modem_control_passthru(res->tmxr);
+
+        /* Reset status registers */
+        reg->stb = M2SIO_CTS | M2SIO_DCD;
+        reg->txp = FALSE;
+        reg->dcdl = FALSE;
+
+        if (uptr->flags & UNIT_ATT) {
+            m2sio_config_rts(uptr, 1);    /* disable RTS */
+        }
+
+        /* Start service routine */
+        sim_activate(uptr, uptr->wait);
     }
-    if ((reg = (M2SIO_REG *) dptr->units->up8) == NULL) {
-        return SCPE_IERR;
-    }
 
-    /* Connect/Disconnect I/O Ports at base address */
-    if (dptr->flags & DEV_DIS) { /* Device is disabled */
-        s100_bus_remio(res->io_base, res->io_size, routine);
-        s100_bus_noconsole(&dptr->units[0]);
-
+    if (dptr->flags & DEV_DIS) {
         return SCPE_OK;
     }
-
-    /* Device is enabled */
-    s100_bus_addio(res->io_base, res->io_size, routine, dptr->name);
-
-    /* Set as CONSOLE unit  */
-    if (dptr->units[0].flags & UNIT_M2SIO_CONSOLE) {
-        s100_bus_console(&dptr->units[0]);
-    }
-
-    /* Set DEVICE for this UNIT */
-    dptr->units[0].dptr = dptr;
-    dptr->units[0].wait = M2SIO_WAIT;
-
-    /* Enable TMXR modem control passthrough */
-    tmxr_set_modem_control_passthru(res->tmxr);
-
-    /* Reset status registers */
-    reg->stb = M2SIO_CTS | M2SIO_DCD;
-    reg->txp = FALSE;
-    reg->dcdl = FALSE;
-
-    if (dptr->units[0].flags & UNIT_ATT) {
-        m2sio_config_rts(dptr, 1);    /* disable RTS */
-    }
-
-    /* Start service routine */
-    sim_activate(&dptr->units[0], dptr->units[0].wait);
 
     sim_debug(STATUS_MSG, dptr, "reset adapter.\n");
 
@@ -432,16 +389,12 @@ static t_stat m2sio_reset(DEVICE *dptr, int32 (*routine)(const int32, const int3
 
 static t_stat m2sio_svc(UNIT *uptr)
 {
-    DEVICE *dptr;
     RES *res;
     M2SIO_REG *reg;
     int32 c,s,stb;
     t_stat r;
 
-    if ((dptr = find_dev_from_unit(uptr)) == NULL)
-        return SCPE_IERR;
-
-    if ((res = (RES *) dptr->ctxt) == NULL) {
+    if ((res = (RES *) uptr->up7) == NULL) {
         return SCPE_IERR;
     }
     if ((reg = (M2SIO_REG *) uptr->up8) == NULL) {
@@ -553,15 +506,11 @@ static t_stat m2sio_svc(UNIT *uptr)
 /* Attach routine */
 static t_stat m2sio_attach(UNIT *uptr, const char *cptr)
 {
-    DEVICE *dptr;
     RES *res;
     M2SIO_REG *reg;
     t_stat r;
 
-    if ((dptr = find_dev_from_unit(uptr)) == NULL)
-        return SCPE_IERR;
-
-    if ((res = (RES *) dptr->ctxt) == NULL) {
+    if ((res = (RES *) uptr->up7) == NULL) {
         return SCPE_IERR;
     }
     if ((reg = (M2SIO_REG *) uptr->up8) == NULL) {
@@ -573,7 +522,7 @@ static t_stat m2sio_attach(UNIT *uptr, const char *cptr)
     if ((r = tmxr_attach(res->tmxr, uptr, cptr)) == SCPE_OK) {
 
         if (res->tmxr->ldsc->serport) {
-            r = m2sio_config_rts(uptr->dptr, reg->rts);    /* update RTS */
+            r = m2sio_config_rts(uptr, reg->rts);    /* update RTS */
         }
 
         res->tmxr->ldsc->rcve = 1;
@@ -586,13 +535,9 @@ static t_stat m2sio_attach(UNIT *uptr, const char *cptr)
 /* Detach routine */
 static t_stat m2sio_detach(UNIT *uptr)
 {
-    DEVICE *dptr;
     RES *res;
 
-    if ((dptr = find_dev_from_unit(uptr)) == NULL)
-        return SCPE_IERR;
-
-    if ((res = (RES *) dptr->ctxt) == NULL) {
+    if ((res = (RES *) uptr->up7) == NULL) {
         return SCPE_IERR;
     }
 
@@ -676,17 +621,13 @@ static t_stat m2sio_show_baud(FILE *st, UNIT *uptr, int32 value, const void *des
 
 static t_stat m2sio_config_line(UNIT *uptr)
 {
-    DEVICE *dptr;
     RES *res;
     M2SIO_REG *reg;
     char config[20];
     const char *fmt;
     t_stat r = SCPE_IERR;
 
-    if ((dptr = find_dev_from_unit(uptr)) == NULL)
-        return SCPE_IERR;
-
-    if ((res = (RES *) dptr->ctxt) == NULL) {
+    if ((res = (RES *) uptr->up7) == NULL) {
         return SCPE_IERR;
     }
     if ((reg = (M2SIO_REG *) uptr->up8) == NULL) {
@@ -737,36 +678,36 @@ static t_stat m2sio_config_line(UNIT *uptr)
 ** 0 = RTS active
 ** 1 = RTS inactive
 */
-static t_stat m2sio_config_rts(DEVICE *dptr, char rts)
+static t_stat m2sio_config_rts(UNIT *uptr, char rts)
 {
     RES *res;
     M2SIO_REG *reg;
     t_stat r = SCPE_OK;
     int32 s;
 
-    if ((res = (RES *) dptr->ctxt) == NULL) {
+    if ((res = (RES *) uptr->up7) == NULL) {
         return SCPE_IERR;
     }
-    if ((reg = (M2SIO_REG *) dptr->units->up8) == NULL) {
+    if ((reg = (M2SIO_REG *) uptr->up8) == NULL) {
         return SCPE_IERR;
     }
 
-    if (dptr->units[0].flags & UNIT_ATT) {
+    if (uptr->flags & UNIT_ATT) {
         /* RTS Control */
         s = TMXR_MDM_RTS;
-        if (dptr->units[0].flags & UNIT_M2SIO_DTR) {
+        if (uptr->flags & UNIT_M2SIO_DTR) {
             s |= TMXR_MDM_DTR;
         }
 
         if (!rts) {
             r = tmxr_set_get_modem_bits(res->tmxr->ldsc, s, 0, NULL);
             if (reg->rts) {
-                sim_debug(STATUS_MSG, dptr, "RTS state changed to HIGH.\n");
+                sim_debug(STATUS_MSG, uptr->dptr, "RTS state changed to HIGH.\n");
             }
         } else {
             r = tmxr_set_get_modem_bits(res->tmxr->ldsc, 0, s, NULL);
             if (!reg->rts) {
-                sim_debug(STATUS_MSG, dptr, "RTS state changed to LOW.\n");
+                sim_debug(STATUS_MSG, uptr->dptr, "RTS state changed to LOW.\n");
             }
         }
     }
@@ -778,33 +719,33 @@ static t_stat m2sio_config_rts(DEVICE *dptr, char rts)
 
 static int32 m2sio0_io(int32 addr, int32 io, int32 data)
 {
-    return(m2sio_io(&m2sio0_dev, addr, io, data));
+    return(m2sio_io(&m2sio_dev.units[0], addr, io, data));
 }
 
 static int32 m2sio1_io(int32 addr, int32 io, int32 data)
 {
-    return(m2sio_io(&m2sio1_dev, addr, io, data));
+    return(m2sio_io(&m2sio_dev.units[1], addr, io, data));
 }
 
-static int32 m2sio_io(DEVICE *dptr, int32 addr, int32 io, int32 data)
+static int32 m2sio_io(UNIT *uptr, int32 addr, int32 io, int32 data)
 {
     int32 r;
 
     if (addr & 0x01) {
-        r = m2sio_data(dptr, io, data);
+        r = m2sio_data(uptr, io, data);
     } else {
-        r = m2sio_stat(dptr, io, data);
+        r = m2sio_stat(uptr, io, data);
     }
 
     return(r);
 }
 
-static int32 m2sio_stat(DEVICE *dptr, int32 io, int32 data)
+static int32 m2sio_stat(UNIT *uptr, int32 io, int32 data)
 {
     M2SIO_REG *reg;
     int32 r;
 
-    if ((reg = (M2SIO_REG *) dptr->units->up8) == NULL) {
+    if ((reg = (M2SIO_REG *) uptr->up8) == NULL) {
         return SCPE_IERR;
     }
 
@@ -815,14 +756,14 @@ static int32 m2sio_stat(DEVICE *dptr, int32 io, int32 data)
 
         /* Master Reset */
         if ((data & M2SIO_RESET) == M2SIO_RESET) {
-            sim_debug(STATUS_MSG, dptr, "MC6850 master reset.\n");
+            sim_debug(STATUS_MSG, uptr->dptr, "MC6850 master reset.\n");
             reg->stb &= (M2SIO_CTS | M2SIO_DCD);           /* Reset status register */
             reg->rxb = 0x00;
             reg->txp = FALSE;
             reg->tie = FALSE;
             reg->rie = FALSE;
             reg->dcdl = FALSE;
-            m2sio_config_rts(dptr, 1);    /* disable RTS */
+            m2sio_config_rts(uptr, 1);    /* disable RTS */
         } else {
             /* Interrupt Enable */
             reg->rie = (data & M2SIO_RIE) == M2SIO_RIE;           /* Receive interrupt enable  */
@@ -830,12 +771,12 @@ static int32 m2sio_stat(DEVICE *dptr, int32 io, int32 data)
             switch (data & M2SIO_RTSMSK) {
                 case M2SIO_RTSLTIE:
                 case M2SIO_RTSLTID:
-                    m2sio_config_rts(dptr, 0);    /* enable RTS */
+                    m2sio_config_rts(uptr, 0);    /* enable RTS */
                     break;
 
                 case M2SIO_RTSHTID:
                 case M2SIO_RTSHTBR:
-                    m2sio_config_rts(dptr, 1);    /* disable RTS */
+                    m2sio_config_rts(uptr, 1);    /* disable RTS */
                     break;
 
                 default:
@@ -843,7 +784,7 @@ static int32 m2sio_stat(DEVICE *dptr, int32 io, int32 data)
             }
 
             /* Set data bits, parity and stop bits format */
-            m2sio_config_line(&dptr->units[0]);
+            m2sio_config_line(uptr);
         }
 
         r = 0x00;
@@ -852,12 +793,12 @@ static int32 m2sio_stat(DEVICE *dptr, int32 io, int32 data)
     return(r);
 }
 
-static int32 m2sio_data(DEVICE *dptr, int32 io, int32 data)
+static int32 m2sio_data(UNIT *uptr, int32 io, int32 data)
 {
     M2SIO_REG *reg;
     int32 r;
 
-    if ((reg = (M2SIO_REG *) dptr->units->up8) == NULL) {
+    if ((reg = (M2SIO_REG *) uptr->up8) == NULL) {
         return SCPE_IERR;
     }
 
