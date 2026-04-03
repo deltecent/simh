@@ -321,12 +321,52 @@ provides a status register and a data register.
 
 By default:
 - `M2SIO0` is connected to the SIMH console (keyboard/screen).
-- `M2SIO1` is available for attachment to a file or a network socket.
+- `M2SIO1` is available for attachment to a network socket or host serial port.
+
+**Console and baud rate:**
 
 ```
 sim> SET M2SIO0 CONSOLE        ; route port 0 to the simulator console
-sim> ATTACH M2SIO1 <port>      ; connect port 1 to a TCP socket
+sim> SET M2SIO0 NOCONSOLE      ; remove port 0 from console duty
+sim> SET M2SIO0 BAUD=9600      ; set baud rate (default 9600)
 sim> SHOW M2SIO0               ; display current configuration
+```
+
+**Attaching to a TCP socket (listen for incoming connections):**
+
+```
+sim> ATTACH M2SIO1 8800        ; listen on TCP port 8800
+```
+
+Connect from the host with any terminal emulator, e.g.:
+```
+telnet localhost 8800
+```
+
+**Attaching to a host serial port:**
+
+On Linux / macOS:
+```
+sim> ATTACH M2SIO1 CONNECT=/dev/ttyUSB0
+sim> SET M2SIO1 BAUD=9600
+```
+
+On Windows:
+```
+sim> ATTACH M2SIO1 CONNECT=COM2
+sim> SET M2SIO1 BAUD=9600
+```
+
+**Outgoing TCP connection (connect to a remote terminal server):**
+
+```
+sim> ATTACH M2SIO1 CONNECT=192.168.1.100:23
+```
+
+**Detaching:**
+
+```
+sim> DETACH M2SIO1
 ```
 
 ---
@@ -509,9 +549,48 @@ computer card.  It integrates a serial port (I/O base `0x78`) with an
 on-board monitor ROM mapped at `0xE000` and a diagnostic/debug block at
 `0xF000`.
 
+The serial port is backed by SIMH's TMXR layer and supports the same TCP
+socket and host serial port attachment options as the 88-2SIO.
+
+**Console and baud rate:**
+
 ```
 sim> SET SBC200 ENABLE         ; enable the SBC-200
+sim> SET SBC200 CONSOLE        ; route the SBC-200 serial port to the console
+sim> SET SBC200 BAUD=9600      ; set baud rate (default 9600)
 sim> SHOW SBC200               ; display current state
+```
+
+**Attaching to a TCP socket (listen for incoming connections):**
+
+```
+sim> ATTACH SBC200 8800        ; listen on TCP port 8800
+```
+
+**Attaching to a host serial port:**
+
+On Linux / macOS:
+```
+sim> ATTACH SBC200 CONNECT=/dev/ttyUSB0
+sim> SET SBC200 BAUD=9600
+```
+
+On Windows:
+```
+sim> ATTACH SBC200 CONNECT=COM2
+sim> SET SBC200 BAUD=9600
+```
+
+**Outgoing TCP connection:**
+
+```
+sim> ATTACH SBC200 CONNECT=192.168.1.100:23
+```
+
+**Detaching:**
+
+```
+sim> DETACH SBC200
 ```
 
 ---
@@ -525,11 +604,48 @@ standard Altair modem software operates correctly.
 
 I/O addresses: `0xE0`–`0xE3` (default).
 
-To make use of the modem, attach it to a TCP socket or serial port on the host:
+The PMMI device is backed by SIMH's TMXR layer.  It supports incoming TCP
+connections (simulating a remote caller) as well as direct attachment to a
+host serial port for use with real telephone-line hardware.
+
+**Attaching to a TCP socket (simulate an incoming call):**
 
 ```
-sim> ATTACH PMMI <port>        ; attach to a TCP port number
-sim> DETACH PMMI               ; disconnect
+sim> ATTACH PMMI 8800          ; listen for a connection on TCP port 8800
+```
+
+Connect from any terminal emulator:
+```
+telnet localhost 8800
+```
+
+**Attaching to a host serial port:**
+
+On Linux / macOS:
+```
+sim> ATTACH PMMI CONNECT=/dev/ttyUSB0
+```
+
+On macOS (USB serial adapter example):
+```
+sim> ATTACH PMMI CONNECT=/dev/tty.usbserial-AB0NW409
+```
+
+On Windows:
+```
+sim> ATTACH PMMI CONNECT=COM2
+```
+
+**Outgoing TCP connection (connect to a remote BBS or terminal server):**
+
+```
+sim> ATTACH PMMI CONNECT=bbs.example.com:23
+```
+
+**Detaching:**
+
+```
+sim> DETACH PMMI
 sim> SHOW PMMI                 ; display modem status
 ```
 
