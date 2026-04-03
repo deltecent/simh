@@ -496,8 +496,10 @@ static t_stat m2sio_svc(UNIT *uptr)
                 r = SCPE_STALL;
             }
         } else {
-            r = sim_putchar(reg->txb);
-            reg->txp = FALSE;                 /* Reset TX Pending */
+            r = sim_putchar_s(reg->txb);
+            if (r != SCPE_STALL) {
+                reg->txp = FALSE;             /* Reset TX Pending */
+            }
         }
 
         if (r == SCPE_LOST) {
