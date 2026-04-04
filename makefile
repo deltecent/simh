@@ -1554,7 +1554,7 @@ ifneq (,$(and $(AUTO_INSTALL_PACKAGES),$(PKG_CMD),$(USEFUL_PACKAGES)))
     $(info $(INSTALLER_RESULT))
     $(info *** rerunning this make to perform your desired build...)
     MAKE_RESULT = $(shell $(MAKE) $(MAKECMDGOALS) $(EXTRAS) 1>&2)
-    $(error Done: $(MAKE_RESULT))
+    $(info Done: $(MAKE_RESULT))
   endif
 else
   ifneq (,$(USEFUL_PACKAGES))
@@ -1578,8 +1578,10 @@ else
         $(info $(INSTALLER_RESULT))
         $(info *** rerunning this make to perform your desired build...)
         MAKE_RESULT = $(shell $(MAKE) $(MAKECMDGOALS) $(EXTRAS) 1>&2)
-        $(error Done: $(MAKE_RESULT))
+        INSTALLED_AND_REBUILT = YES
+        $(info Done: $(MAKE_RESULT))
       endif
+      ifeq (,$(INSTALLED_AND_REBUILT))
       ifeq (,$(PKG_NO_SUDO))
         $(info Enter:    $$ sudo $(PKG_CMD) $(USEFUL_PACKAGES) $(OPTIONAL_PACKAGES))
         $(info when that completes)
@@ -1594,6 +1596,7 @@ else
         $(info Enter:    $(hash) exit)
         $(info re-enter: $$ $(MAKE) $(MAKECMDGOALS) $(EXTRAS))
         $(error )
+      endif
       endif
     endif
   endif
